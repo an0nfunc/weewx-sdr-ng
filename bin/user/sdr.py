@@ -186,6 +186,10 @@ class ProcManager(object):
         if ld_library_path:
             env["LD_LIBRARY_PATH"] = ld_library_path
         try:
+            # if cmd comes in as a list, put it back together with ',' separators, since it somehow gets split on these
+            if isinstance(cmd, list):
+                cmd = ",".join(cmd)
+
             self._process = subprocess.Popen(
                 cmd.split(" "), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
