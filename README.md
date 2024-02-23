@@ -129,7 +129,7 @@ and map the output from rtl_433 to the database fields in weewx.
         inTemp = temperature.2:9.HidekiTS04Packet
 ```
 
-# Fine Offset sensor cluster with serial number 0026
+#### Fine Offset sensor cluster with serial number 0026
 ```
 [SDR]
     driver = user.sdr
