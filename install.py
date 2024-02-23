@@ -4,16 +4,18 @@
 
 from weecfg.extension import ExtensionInstaller
 
+
 def loader():
     return SDRInstaller()
+
 
 class SDRInstaller(ExtensionInstaller):
     def __init__(self):
         super(SDRInstaller, self).__init__(
             version="0.87",
-            name='sdr',
-            description='Capture data from rtl_433',
+            name="sdr",
+            description="Capture data from rtl_433",
             author="Matthew Wall",
             author_email="mwall@users.sourceforge.net",
-            files=[('bin/user', ['bin/user/sdr.py'])]
-            )
+            files=[("bin/user", ["bin/user/sdr.py"])],
+        )

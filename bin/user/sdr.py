@@ -78,13 +78,10 @@ in the JSON data, for example 'wind_speed_mph' instead of just 'wind_speed'.
 # can recognize anything rtl_433 spits out
 
 from __future__ import with_statement
+
 from calendar import timegm
-try:
-    # Python 3
-    import queue
-except ImportError:
-    # Python 2:
-    import Queue as queue
+
+import queue
 import fnmatch
 import os
 import re
@@ -93,15 +90,7 @@ import threading
 import time
 import copy
 
-try:
-    import cjson as json
-    setattr(json, 'dumps', json.encode)
-    setattr(json, 'loads', json.decode)
-except (ImportError, AttributeError):
-    try:
-        import simplejson as json
-    except ImportError:
-        import json
+import json
 
 import weewx.drivers
 import weewx.units
@@ -111,6 +100,7 @@ try:
     # New-style weewx logging
     import weeutil.logger
     import logging
+
     log = logging.getLogger(__name__)
 
     def logdbg(msg):
@@ -127,10 +117,9 @@ except ImportError:
     import syslog
 
     def logmsg(level, msg):
-        syslog.syslog(level, 'sdr: %s: %s' %
-                      (threading.currentThread().getName(), msg))
+        syslog.syslog(level, "sdr: %s: %s" % (threading.currentThread().getName(), msg))
 
-    def logdbg(msg):
+    def log_dbg(msg):
         logmsg(syslog.LOG_DEBUG, msg)
 
     def loginf(msg):
@@ -139,8 +128,9 @@ except ImportError:
     def logerr(msg):
         logmsg(syslog.LOG_ERR, msg)
 
-DRIVER_NAME = 'SDR'
-DRIVER_VERSION = '0.87'
+
+DRIVER_NAME = "SDR"
+DRIVER_VERSION = "0.87"
 
 # The default command requests json output from every decoder
 # Use the -R option to indicate specific decoders
@@ -152,14 +142,16 @@ DRIVER_VERSION = '0.87'
 #           as of early 2020, the syntax is '-G4', but use only for testing
 
 # very old implmentations:
-#DEFAULT_CMD = 'rtl_433 -q -U -F json -G'
+# DEFAULT_CMD = 'rtl_433 -q -U -F json -G'
 # as of dec2018:
-#DEFAULT_CMD = 'rtl_433 -M utc -F json -G'
+# DEFAULT_CMD = 'rtl_433 -M utc -F json -G'
 # as of feb2020:
-DEFAULT_CMD = 'rtl_433 -M utc -F json'
+DEFAULT_CMD = "rtl_433 -M utc -F json"
+
 
 def loader(config_dict, _):
     return SDRDriver(**config_dict[DRIVER_NAME])
+
 
 def confeditor_loader():
     return SDRConfigurationEditor()
@@ -168,13 +160,15 @@ def confeditor_loader():
 # utilities for inline unit conversions.  respect the None!
 def to_F(v):
     if v is not None:
-        v  = v * 1.8 + 32
+        v = v * 1.8 + 32
     return v
+
 
 def to_mph(v):
     if v is not None:
         v *= 0.621371
     return v
+
 
 def to_in(v):
     if v is not None:
@@ -183,19 +177,18 @@ def to_in(v):
 
 
 class AsyncReader(threading.Thread):
-
     def __init__(self, fd, queue, label):
         threading.Thread.__init__(self)
         self._fd = fd
         self._queue = queue
         self._running = False
-        self.setDaemon(True)
-        self.setName(label)
+        self.daemon = True
+        self.name = label
 
     def run(self):
-        logdbg("start async reader for %s" % self.getName())
+        log_dbg("start async reader for %s" % self.name)
         self._running = True
-        for line in iter(self._fd.readline, ''):
+        for line in iter(self._fd.readline, ""):
             if line:
                 self._queue.put(line)
             if not self._running:
@@ -206,7 +199,7 @@ class AsyncReader(threading.Thread):
 
 
 class ProcManager(object):
-    TS = re.compile('^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d[\s]+')
+    TS = re.compile(r"^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d\s+")
 
     def __init__(self):
         self._cmd = None
@@ -221,47 +214,47 @@ class ProcManager(object):
         loginf("startup process '%s'" % self._cmd)
         env = os.environ.copy()
         if path:
-            env['PATH'] = path + ':' + env['PATH']
+            env["PATH"] = path + ":" + env["PATH"]
         if ld_library_path:
-            env['LD_LIBRARY_PATH'] = ld_library_path
+            env["LD_LIBRARY_PATH"] = ld_library_path
         try:
-            self._process = subprocess.Popen(cmd.split(' '),
-                                             env=env,
-                                             stdout=subprocess.PIPE,
-                                             stderr=subprocess.PIPE)
+            self._process = subprocess.Popen(
+                cmd.split(" "), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             self.stdout_reader = AsyncReader(
-                self._process.stdout, self.stdout_queue, 'stdout-thread')
+                self._process.stdout, self.stdout_queue, "stdout-thread"
+            )
             self.stdout_reader.start()
             self.stderr_reader = AsyncReader(
-                self._process.stderr, self.stderr_queue, 'stderr-thread')
+                self._process.stderr, self.stderr_queue, "stderr-thread"
+            )
             self.stderr_reader.start()
         except (OSError, ValueError) as e:
-            raise weewx.WeeWxIOError("failed to start process '%s': %s" %
-                                     (cmd, e))
+            raise weewx.WeeWxIOError("failed to start process '%s': %s" % (cmd, e))
 
     def shutdown(self):
-        loginf('shutdown process %s' % self._cmd)
+        loginf("shutdown process %s" % self._cmd)
         self._process.kill()
-        logdbg("close stdout")
+        log_dbg("close stdout")
         self._process.stdout.close()
-        logdbg("close stderr")
+        log_dbg("close stderr")
         self._process.stderr.close()
-        logdbg('shutdown %s' % self.stdout_reader.getName())
+        log_dbg("shutdown %s" % self.stdout_reader.getName())
         self.stdout_reader.stop_running()
         self.stdout_reader.join(0.5)
-        logdbg('shutdown %s' % self.stderr_reader.getName())
+        log_dbg("shutdown %s" % self.stderr_reader.getName())
         self.stderr_reader.stop_running()
         self.stderr_reader.join(0.5)
         if self._process.poll() is None:
-            logerr('process did not respond to kill, shutting down anyway')
+            logerr("process did not respond to kill, shutting down anyway")
         self._process = None
         if self.stdout_reader.is_alive():
-            loginf('timed out waiting for %s' % self.stdout_reader.getName())
+            loginf("timed out waiting for %s" % self.stdout_reader.getName())
         self.stdout_reader = None
         if self.stderr_reader.is_alive():
-            loginf('timed out waiting for %s' % self.stderr_reader.getName())
+            loginf("timed out waiting for %s" % self.stderr_reader.getName())
         self.stderr_reader = None
-        loginf('shutdown complete')
+        loginf("shutdown complete")
 
     def running(self):
         return self._process.poll() is None
@@ -292,7 +285,6 @@ class ProcManager(object):
 
 
 class Packet:
-
     def __init__(self):
         pass
 
@@ -304,7 +296,7 @@ class Packet:
     def parse_json(obj):
         return None
 
-    TS_PATTERN = re.compile('(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)')
+    TS_PATTERN = re.compile(r"(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)")
 
     @staticmethod
     def parse_time(line):
@@ -347,42 +339,41 @@ class Packet:
             parseinfo = dict()
         packet = dict()
         for line in lines[1:]:
-            if line.count(':') == 1:
+            if line.count(":") == 1:
                 try:
-                    (name, value) = [x.strip() for x in line.split(':')]
+                    (name, value) = [x.strip() for x in line.split(":")]
                     if name in parseinfo:
                         if parseinfo[name][1]:
                             m = parseinfo[name][1].search(value)
                             if m:
                                 value = m.group(1)
                             else:
-                                logdbg("regex failed for %s:'%s'" %
-                                       (name, value))
+                                log_dbg("regex failed for %s:'%s'" % (name, value))
                         if parseinfo[name][2]:
                             value = parseinfo[name][2](value)
                         if parseinfo[name][0]:
                             name = parseinfo[name][0]
                         packet[name] = value
                     else:
-                        logdbg("ignoring %s:%s" % (name, value))
+                        log_dbg("ignoring %s:%s" % (name, value))
                 except Exception as e:
                     logerr("parse failed for line '%s': %s" % (line, e))
             else:
-                logdbg("skip line '%s'" % line)
+                log_dbg("skip line '%s'" % line)
         while lines:
             lines.pop(0)
         return packet
 
     @staticmethod
-    def add_identifiers(pkt, sensor_id='', packet_type=''):
+    def add_identifiers(pkt, sensor_id="", packet_type=""):
         # qualify each field name with details about the sensor.  not every
         # sensor has all three fields.
         # observation.<sensor_id>.<packet_type>
         packet = dict()
-        if 'dateTime' in pkt:
-            packet['dateTime'] = pkt.pop('dateTime', 0)
-        if 'usUnits' in pkt:
-            packet['usUnits'] = pkt.pop('usUnits', 0)
+        if "dateTime" in pkt:
+            packet["dateTime"] = pkt.pop("dateTime", 0)
+        if "usUnits" in pkt:
+            packet["usUnits"] = pkt.pop("usUnits", 0)
         for n in pkt:
             packet["%s.%s.%s" % (n, sensor_id, packet_type)] = pkt[n]
         return packet
@@ -393,7 +384,7 @@ class Acurite(object):
     def insert_ids(pkt, pkt_type):
         # there should be a sensor_id field in the packet to identify sensor.
         # ensure the sensor_id is upper-case - it should be 4 hex characters.
-        sensor_id = str(pkt.pop('hardware_id', '0000')).upper()
+        sensor_id = str(pkt.pop("hardware_id", "0000")).upper()
         return Packet.add_identifiers(pkt, sensor_id, pkt_type)
 
 
@@ -413,44 +404,44 @@ class AcuriteAtlasPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['usUnits'] = weewx.US
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['model'] = obj.get('model')
-        pkt['hardware_id'] = "%04x" % obj.get('id', 0)
-        pkt['channel'] = obj.get('channel')
-        pkt['sequence_num'] = Packet.get_int(obj, 'sequence_num')
-        pkt['message_type'] = Packet.get_int(obj, 'message_type')
-        if 'humidity' in obj:
-            pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        if 'temperature_F' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        elif 'temperature_C' in obj:
-            pkt['temperature'] = to_F(Packet.get_float(obj, 'temperature_C'))
-        if 'wind_avg_mi_h' in obj:
-            pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_mi_h')
-        elif 'wind_avg_km_h' in obj:
-            pkt['wind_speed'] = to_mph(Packet.get_float(obj, 'wind_avg_km_h'))
-        if 'wind_dir_deg' in obj:
-            pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        if 'rain_in' in obj:
-            pkt['rain_total'] = Packet.get_float(obj, 'rain_in')
-        elif 'rain_mm' in obj:
-            pkt['rain_total'] = to_in(Packet.get_float(obj, 'rain_mm'))
-        if 'uv' in obj:
-            pkt['uv'] = Packet.get_int(obj, 'uv')
-        if 'lux' in obj:
-            pkt['lux'] = Packet.get_int(obj, 'lux')
-        if 'strike_count' in obj:
-            pkt['strike_count'] = Packet.get_int(obj, 'strike_count')
-        if 'strike_distance' in obj:
-            pkt['strike_distance'] = Packet.get_int(obj, 'strike_distance')
-        if 'snr' in obj:
-            pkt['snr'] = obj.get('snr')
-        if 'rssi' in obj:
-            pkt['rssi'] = obj.get('rssi')
-        if 'noise' in obj:
-            pkt['noise'] = obj.get('noise')
-        pkt['battery'] = 1 if Packet.get_int(obj, 'battery_ok') == 0 else 0
+        pkt["usUnits"] = weewx.US
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["model"] = obj.get("model")
+        pkt["hardware_id"] = "%04x" % obj.get("id", 0)
+        pkt["channel"] = obj.get("channel")
+        pkt["sequence_num"] = Packet.get_int(obj, "sequence_num")
+        pkt["message_type"] = Packet.get_int(obj, "message_type")
+        if "humidity" in obj:
+            pkt["humidity"] = Packet.get_float(obj, "humidity")
+        if "temperature_F" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        elif "temperature_C" in obj:
+            pkt["temperature"] = to_F(Packet.get_float(obj, "temperature_C"))
+        if "wind_avg_mi_h" in obj:
+            pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_mi_h")
+        elif "wind_avg_km_h" in obj:
+            pkt["wind_speed"] = to_mph(Packet.get_float(obj, "wind_avg_km_h"))
+        if "wind_dir_deg" in obj:
+            pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        if "rain_in" in obj:
+            pkt["rain_total"] = Packet.get_float(obj, "rain_in")
+        elif "rain_mm" in obj:
+            pkt["rain_total"] = to_in(Packet.get_float(obj, "rain_mm"))
+        if "uv" in obj:
+            pkt["uv"] = Packet.get_int(obj, "uv")
+        if "lux" in obj:
+            pkt["lux"] = Packet.get_int(obj, "lux")
+        if "strike_count" in obj:
+            pkt["strike_count"] = Packet.get_int(obj, "strike_count")
+        if "strike_distance" in obj:
+            pkt["strike_distance"] = Packet.get_int(obj, "strike_distance")
+        if "snr" in obj:
+            pkt["snr"] = obj.get("snr")
+        if "rssi" in obj:
+            pkt["rssi"] = obj.get("rssi")
+        if "noise" in obj:
+            pkt["noise"] = obj.get("noise")
+        pkt["battery"] = 1 if Packet.get_int(obj, "battery_ok") == 0 else 0
         return Acurite.insert_ids(pkt, AcuriteAtlasPacket.__name__)
 
 
@@ -466,24 +457,24 @@ class AcuriteTowerPacketV2(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['usUnits'] = weewx.US
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['protocol'] = Packet.get_int(obj, 'protocol') # 40
-        pkt['model'] = obj.get('model') # model = Acurite-Tower
-        pkt['hardware_id'] = "%04x" % obj.get('id', 0)
-        pkt['sensor_id'] = "%04x" % obj.get('sensor_id', 0)
-        pkt['channel'] = obj.get('channel')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        if 'temperature_F' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        elif 'temperature_C' in obj:
-            pkt['temperature'] = to_F(Packet.get_float(obj, 'temperature_C'))
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        pkt['mod'] = obj.get('mod') # apparently mod = ASK
-        pkt['freq'] = Packet.get_float(obj, 'freq')
-        pkt['rssi'] = Packet.get_float(obj, 'rssi')
-        pkt['snr'] = Packet.get_float(obj, 'snr')
-        pkt['noise'] = Packet.get_float(obj, 'noise')
+        pkt["usUnits"] = weewx.US
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["protocol"] = Packet.get_int(obj, "protocol")  # 40
+        pkt["model"] = obj.get("model")  # model = Acurite-Tower
+        pkt["hardware_id"] = "%04x" % obj.get("id", 0)
+        pkt["sensor_id"] = "%04x" % obj.get("sensor_id", 0)
+        pkt["channel"] = obj.get("channel")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        if "temperature_F" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        elif "temperature_C" in obj:
+            pkt["temperature"] = to_F(Packet.get_float(obj, "temperature_C"))
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["mod"] = obj.get("mod")  # apparently mod = ASK
+        pkt["freq"] = Packet.get_float(obj, "freq")
+        pkt["rssi"] = Packet.get_float(obj, "rssi")
+        pkt["snr"] = Packet.get_float(obj, "snr")
+        pkt["noise"] = Packet.get_float(obj, "noise")
         return Acurite.insert_ids(pkt, AcuriteTowerPacketV2.__name__)
 
 
@@ -496,27 +487,27 @@ class Acurite3n1PacketV2(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['usUnits'] = weewx.US
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['model'] = obj.get('model')
-        pkt['hardware_id'] = "%04x" % obj.get('id', 0)
-        pkt['channel'] = obj.get('channel')
-        pkt['sequence_num'] = Packet.get_int(obj, 'sequence_num')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        if 'subtype' in obj:
-            pkt['msg_type'] = Packet.get_int(obj, 'subtype')
-        elif 'message_type' in obj:
-            pkt['msg_type'] = Packet.get_int(obj, 'message_type')
-        if 'humidity' in obj:
-            pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        if 'temperature_F' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        elif 'temperature_C' in obj:
-            pkt['temperature'] = to_F(Packet.get_float(obj, 'temperature_C'))
-        if 'wind_avg_mi_h' in obj:
-            pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_mi_h')
-        elif 'wind_avg_km_h' in obj:
-            pkt['wind_speed'] = to_mph(Packet.get_float(obj, 'wind_avg_km_h'))
+        pkt["usUnits"] = weewx.US
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["model"] = obj.get("model")
+        pkt["hardware_id"] = "%04x" % obj.get("id", 0)
+        pkt["channel"] = obj.get("channel")
+        pkt["sequence_num"] = Packet.get_int(obj, "sequence_num")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        if "subtype" in obj:
+            pkt["msg_type"] = Packet.get_int(obj, "subtype")
+        elif "message_type" in obj:
+            pkt["msg_type"] = Packet.get_int(obj, "message_type")
+        if "humidity" in obj:
+            pkt["humidity"] = Packet.get_float(obj, "humidity")
+        if "temperature_F" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        elif "temperature_C" in obj:
+            pkt["temperature"] = to_F(Packet.get_float(obj, "temperature_C"))
+        if "wind_avg_mi_h" in obj:
+            pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_mi_h")
+        elif "wind_avg_km_h" in obj:
+            pkt["wind_speed"] = to_mph(Packet.get_float(obj, "wind_avg_km_h"))
         return Acurite.insert_ids(pkt, Acurite3n1PacketV2.__name__)
 
 
@@ -534,43 +525,43 @@ class Acurite5n1PacketV2(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['usUnits'] = weewx.US
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['protocol'] = Packet.get_int(obj, 'protocol')
-        pkt['model'] = obj.get('model')
-        pkt['hardware_id'] = "%04x" % obj.get('id', 0)
-        pkt['channel'] = obj.get('channel')
-        pkt['sequence_num'] = Packet.get_int(obj, 'sequence_num')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
+        pkt["usUnits"] = weewx.US
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["protocol"] = Packet.get_int(obj, "protocol")
+        pkt["model"] = obj.get("model")
+        pkt["hardware_id"] = "%04x" % obj.get("id", 0)
+        pkt["channel"] = obj.get("channel")
+        pkt["sequence_num"] = Packet.get_int(obj, "sequence_num")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
         # connection diagnostics depend on the version of rtl_433
-        pkt['mod'] = obj.get('mod')  # apparently is ASK
-        pkt['freq'] = Packet.get_float(obj, 'freq')
-        pkt['rssi'] = Packet.get_float(obj, 'rssi')
-        pkt['snr'] = Packet.get_float(obj, 'snr')
-        pkt['noise'] = Packet.get_float(obj, 'noise')
+        pkt["mod"] = obj.get("mod")  # apparently is ASK
+        pkt["freq"] = Packet.get_float(obj, "freq")
+        pkt["rssi"] = Packet.get_float(obj, "rssi")
+        pkt["snr"] = Packet.get_float(obj, "snr")
+        pkt["noise"] = Packet.get_float(obj, "noise")
         # the label for message type has changed in rtl_433
-        if 'subtype' in obj:
-            pkt['msg_type'] = Packet.get_int(obj, 'subtype')
-        elif 'message_type' in obj:
-            pkt['msg_type'] = Packet.get_int(obj, 'message_type')
+        if "subtype" in obj:
+            pkt["msg_type"] = Packet.get_int(obj, "subtype")
+        elif "message_type" in obj:
+            pkt["msg_type"] = Packet.get_int(obj, "message_type")
         # each message type contains different information.  units vary
         # depending on the rtl_433 configuration, so be ready for anything.
         #   49 has wind_speed, wind_dir, and rain
         #   56 has wind_speed, temperature, humidity
-        if 'wind_avg_km_h' in obj:
-            pkt['wind_speed'] = to_mph(Packet.get_float(obj, 'wind_avg_km_h'))
-        if 'wind_dir_deg' in obj:
-            pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        if 'rain_in' in obj:
-            pkt['rain_total'] = Packet.get_float(obj, 'rain_in')
-        elif 'rain_mm' in obj:
-            pkt['rain_total'] = to_in(Packet.get_float(obj, 'rain_mm'))
-        if 'temperature_F' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        elif 'temperature_C' in obj:
-            pkt['temperature'] = to_F(Packet.get_float(obj, 'temperature_C'))
-        if 'humidity' in obj:
-            pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        if "wind_avg_km_h" in obj:
+            pkt["wind_speed"] = to_mph(Packet.get_float(obj, "wind_avg_km_h"))
+        if "wind_dir_deg" in obj:
+            pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        if "rain_in" in obj:
+            pkt["rain_total"] = Packet.get_float(obj, "rain_in")
+        elif "rain_mm" in obj:
+            pkt["rain_total"] = to_in(Packet.get_float(obj, "rain_mm"))
+        if "temperature_F" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        elif "temperature_C" in obj:
+            pkt["temperature"] = to_F(Packet.get_float(obj, "temperature_C"))
+        if "humidity" in obj:
+            pkt["humidity"] = Packet.get_float(obj, "humidity")
         return Acurite.insert_ids(pkt, Acurite5n1PacketV2.__name__)
 
 
@@ -586,20 +577,22 @@ class AcuriteTowerPacket(Packet):
     # : 68
 
     IDENTIFIER = "Acurite tower sensor"
-    PATTERN = re.compile('0x([0-9a-fA-F]+) Ch ([A-C]): ([\d.-]+) C ([\d.-]+) F ([\d]+) % RH')
+    PATTERN = re.compile(
+        r"0x([0-9a-fA-F]+) Ch ([A-C]): ([\d.-]+) C ([\d.-]+) F (\d+) % RH"
+    )
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
         m = AcuriteTowerPacket.PATTERN.search(lines[0])
         if m:
-            pkt['dateTime'] = ts
-            pkt['usUnits'] = weewx.METRIC
-            pkt['hardware_id'] = m.group(1)
-            pkt['channel'] = m.group(2)
-            pkt['temperature'] = float(m.group(3))
-            pkt['temperature_F'] = float(m.group(4))
-            pkt['humidity'] = float(m.group(5))
+            pkt["dateTime"] = ts
+            pkt["usUnits"] = weewx.METRIC
+            pkt["hardware_id"] = m.group(1)
+            pkt["channel"] = m.group(2)
+            pkt["temperature"] = float(m.group(3))
+            pkt["temperature_F"] = float(m.group(4))
+            pkt["humidity"] = float(m.group(5))
             pkt = Acurite.insert_ids(pkt, AcuriteTowerPacket.__name__)
         else:
             loginf("AcuriteTowerPacket: unrecognized data: '%s'" % lines[0])
@@ -617,21 +610,21 @@ class AcuriteTowerPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.US
-        pkt['hardware_id'] = "%04x" % obj.get('id', 0)
-        pkt['channel'] = obj.get('channel')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.US
+        pkt["hardware_id"] = "%04x" % obj.get("id", 0)
+        pkt["channel"] = obj.get("channel")
         # support both battery status keywords
-        if 'battery_low' in obj:
-            pkt['battery'] = Packet.get_int(obj, 'battery_low')
+        if "battery_low" in obj:
+            pkt["battery"] = Packet.get_int(obj, "battery_low")
         else:
-            pkt['battery'] = Packet.get_int(obj, 'battery')
-        pkt['status'] = obj.get('status')
-        if 'temperature_F' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        elif 'temperature_C' in obj:
-            pkt['temperature'] = to_F(Packet.get_float(obj, 'temperature_C'))
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
+            pkt["battery"] = Packet.get_int(obj, "battery")
+        pkt["status"] = obj.get("status")
+        if "temperature_F" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        elif "temperature_C" in obj:
+            pkt["temperature"] = to_F(Packet.get_float(obj, "temperature_C"))
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
         return Acurite.insert_ids(pkt, AcuriteTowerPacket.__name__)
 
 
@@ -648,59 +641,62 @@ class Acurite5n1Packet(Packet):
     # counter, so try to deal with the variants we have seen.
 
     IDENTIFIER = "Acurite 5n1 sensor"
-    PATTERN = re.compile('0x([0-9a-fA-F]+) Ch ([A-C]), (.*)')
-    RAIN = re.compile('Total rain fall since last reset: ([\d.]+)')
-    MSG = re.compile('Msg (\d+), (.*)')
-    MSG31 = re.compile('Wind ([\d.]+) kmph / ([\d.]+) mph ([\d.]+).*rain gauge ([\d.]+) in')
-    MSG38 = re.compile('Wind ([\d.]+) kmph / ([\d.]+) mph, ([\d.-]+) C ([\d.-]+) F ([\d.]+) % RH')
+    PATTERN = re.compile(r"0x([0-9a-fA-F]+) Ch ([A-C]), (.*)")
+    RAIN = re.compile(r"Total rain fall since last reset: ([\d.]+)")
+    MSG = re.compile(r"Msg (\d+), (.*)")
+    MSG31 = re.compile(
+        r"Wind ([\d.]+) kmph / ([\d.]+) mph ([\d.]+).*rain gauge ([\d.]+) in"
+    )
+    MSG38 = re.compile(
+        r"Wind ([\d.]+) kmph / ([\d.]+) mph, ([\d.-]+) C ([\d.-]+) F ([\d.]+) % RH"
+    )
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
         m = Acurite5n1Packet.PATTERN.search(lines[0])
         if m:
-            pkt['dateTime'] = ts
-            pkt['usUnits'] = weewx.METRIC
-            pkt['hardware_id'] = m.group(1)
-            pkt['channel'] = m.group(2)
+            pkt["dateTime"] = ts
+            pkt["usUnits"] = weewx.METRIC
+            pkt["hardware_id"] = m.group(1)
+            pkt["channel"] = m.group(2)
             payload = m.group(3)
             m = Acurite5n1Packet.MSG.search(payload)
             if m:
                 msg_type = m.group(1)
                 payload = m.group(2)
-                if msg_type == '31':
+                if msg_type == "31":
                     m = Acurite5n1Packet.MSG31.search(payload)
                     if m:
-                        pkt['wind_speed'] = float(m.group(1))
-                        pkt['wind_speed_mph'] = float(m.group(2))
-                        pkt['wind_dir'] = float(m.group(3))
-                        pkt['rain_total'] = float(m.group(4))
+                        pkt["wind_speed"] = float(m.group(1))
+                        pkt["wind_speed_mph"] = float(m.group(2))
+                        pkt["wind_dir"] = float(m.group(3))
+                        pkt["rain_total"] = float(m.group(4))
                     else:
-                        loginf("Acurite5n1Packet: no match for type 31: '%s'"
-                               % payload)
-                elif msg_type == '38':
+                        loginf("Acurite5n1Packet: no match for type 31: '%s'" % payload)
+                elif msg_type == "38":
                     m = Acurite5n1Packet.MSG38.search(payload)
                     if m:
-                        pkt['wind_speed'] = float(m.group(1))
-                        pkt['wind_speed_mph'] = float(m.group(2))
-                        pkt['temperature'] = float(m.group(3))
-                        pkt['temperature_F'] = float(m.group(4))
-                        pkt['humidity'] = float(m.group(5))
+                        pkt["wind_speed"] = float(m.group(1))
+                        pkt["wind_speed_mph"] = float(m.group(2))
+                        pkt["temperature"] = float(m.group(3))
+                        pkt["temperature_F"] = float(m.group(4))
+                        pkt["humidity"] = float(m.group(5))
                     else:
-                        loginf("Acurite5n1Packet: no match for type 38: '%s'"
-                               % payload)
+                        loginf("Acurite5n1Packet: no match for type 38: '%s'" % payload)
                 else:
-                    loginf("Acurite5n1Packet: unknown message type %s"
-                           " in line '%s'" % (msg_type, lines[0]))
+                    loginf(
+                        "Acurite5n1Packet: unknown message type %s"
+                        " in line '%s'" % (msg_type, lines[0])
+                    )
             else:
                 m = Acurite5n1Packet.RAIN.search(payload)
                 if m:
                     total = float(m.group(1))
-                    pkt['rain_since_reset'] = total
+                    pkt["rain_since_reset"] = total
                     loginf("Acurite5n1Packet: rain since reset: %s" % total)
                 else:
-                    loginf("Acurite5n1Packet: unknown message format: '%s'" %
-                           lines[0])
+                    loginf("Acurite5n1Packet: unknown message format: '%s'" % lines[0])
         else:
             loginf("Acurite5n1Packet: unrecognized data: '%s'" % lines[0])
         lines.pop(0)
@@ -721,30 +717,30 @@ class Acurite5n1Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.US
-        pkt['hardware_id'] = "%04x" % obj.get('sensor_id', 0)
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['status'] = obj.get('status')
-        msg_type = obj.get('message_type')
-        if msg_type == 49: # 0x31
-            pkt['wind_speed'] = Acurite5n1Packet.get_wind_speed(obj)
-            pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-            pkt['rain_total'] = Acurite5n1Packet.get_rain_total(obj)
-        elif msg_type == 56: # 0x38
-            pkt['wind_speed'] = Acurite5n1Packet.get_wind_speed(obj)
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-            pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.US
+        pkt["hardware_id"] = "%04x" % obj.get("sensor_id", 0)
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["status"] = obj.get("status")
+        msg_type = obj.get("message_type")
+        if msg_type == 49:  # 0x31
+            pkt["wind_speed"] = Acurite5n1Packet.get_wind_speed(obj)
+            pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+            pkt["rain_total"] = Acurite5n1Packet.get_rain_total(obj)
+        elif msg_type == 56:  # 0x38
+            pkt["wind_speed"] = Acurite5n1Packet.get_wind_speed(obj)
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+            pkt["humidity"] = Packet.get_float(obj, "humidity")
         return Acurite.insert_ids(pkt, Acurite5n1Packet.__name__)
 
     @staticmethod
     def get_wind_speed(obj):
         ws = None
-        if 'wind_speed_mph' in obj:
-            ws = Packet.get_float(obj, 'wind_speed_mph')
-        if 'wind_speed_kph' in obj:
-            ws = Packet.get_float(obj, 'wind_speed_kph')
+        if "wind_speed_mph" in obj:
+            ws = Packet.get_float(obj, "wind_speed_mph")
+        if "wind_speed_kph" in obj:
+            ws = Packet.get_float(obj, "wind_speed_kph")
             if ws is not None:
                 ws = weewx.units.kph_to_mph(ws)
         return ws
@@ -752,13 +748,13 @@ class Acurite5n1Packet(Packet):
     @staticmethod
     def get_rain_total(obj):
         rain_total = None
-        if 'raincounter_raw' in obj:
-            rain_counter = Packet.get_int(obj, 'raincounter_raw')
+        if "raincounter_raw" in obj:
+            rain_counter = Packet.get_int(obj, "raincounter_raw")
             # put some units on the rain total - each tip is 0.01 inch
             if rain_counter is not None:
-                rain_total = rain_counter * 0.01 # inch
-        elif 'rain_inch' in obj:
-            rain_total = Packet.get_float(obj, 'rain_inch')
+                rain_total = rain_counter * 0.01  # inch
+        elif "rain_inch" in obj:
+            rain_total = Packet.get_float(obj, "rain_inch")
         return rain_total
 
 
@@ -771,21 +767,21 @@ class Acurite606TXPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.US
-        sensor_id = obj.get('id')
-        if 'temperature_F' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        elif 'temperature_C' in obj:
-            pkt['temperature'] = to_F(Packet.get_float(obj, 'temperature_C'))
-        if 'battery_ok' in obj:
-            pkt['battery'] = 0 if Packet.get_int(obj, 'battery_ok') == 1 else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.US
+        sensor_id = obj.get("id")
+        if "temperature_F" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        elif "temperature_C" in obj:
+            pkt["temperature"] = to_F(Packet.get_float(obj, "temperature_C"))
+        if "battery_ok" in obj:
+            pkt["battery"] = 0 if Packet.get_int(obj, "battery_ok") == 1 else 1
         else:
-            pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
+            pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
         pkt = Packet.add_identifiers(pkt, sensor_id, Acurite606TXPacket.__name__)
         return pkt
 
-     
+
 class Acurite606TXPacketV2(Packet):
     # 2021-02-23: Acurite 606TX Temperature Sensor
     # {"time" : "2021-02-23 16:24:07", "model" : "Acurite-606TX", "id" : 153, "battery_ok" : 1, "temperature_C" : 18.800, "mic" : "CHECKSUM"}
@@ -796,18 +792,18 @@ class Acurite606TXPacketV2(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.US
-        sensor_id = obj.get('id')
-        if 'temperature_F' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        elif 'temperature_C' in obj:
-            pkt['temperature'] = to_F(Packet.get_float(obj, 'temperature_C'))
-        pkt['battery'] = 0 if obj.get('battery_ok') == '1' else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.US
+        sensor_id = obj.get("id")
+        if "temperature_F" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        elif "temperature_C" in obj:
+            pkt["temperature"] = to_F(Packet.get_float(obj, "temperature_C"))
+        pkt["battery"] = 0 if obj.get("battery_ok") == "1" else 1
         pkt = Packet.add_identifiers(pkt, sensor_id, Acurite606TXPacketV2.__name__)
         return pkt
 
-      
+
 class AcuriteRain899Packet(Packet):
     # Sample data:
     # {"time" : "2019-12-05 16:32:20", "model" : "Acurite-Rain899", "id" : 1699, "channel" : 0, "battery_ok" : 0, "rain_mm" : 6.096}
@@ -819,14 +815,14 @@ class AcuriteRain899Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['usUnits'] = weewx.US
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['model'] = obj.get('model')
-        pkt['hardware_id'] = "%04x" % obj.get('id', 0)
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        if 'rain_mm' in obj:
-            pkt['rain_total'] = to_in(Packet.get_float(obj, 'rain_mm'))
+        pkt["usUnits"] = weewx.US
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["model"] = obj.get("model")
+        pkt["hardware_id"] = "%04x" % obj.get("id", 0)
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        if "rain_mm" in obj:
+            pkt["rain_total"] = to_in(Packet.get_float(obj, "rain_mm"))
         return Acurite.insert_ids(pkt, AcuriteRain899Packet.__name__)
 
 
@@ -847,19 +843,19 @@ class Acurite986Packet(Packet):
     # IDENTIFIER = "Acurite 986 sensor"
     # IDENTIFIER = "Acurite 986 Sensor"
     IDENTIFIER = "Acurite-986"
-    PATTERN = re.compile('0x([0-9a-fA-F]+) - (1R|2F): ([\d.-]+) C ([\d.-]+) F')
+    PATTERN = re.compile(r"0x([0-9a-fA-F]+) - (1R|2F): ([\d.-]+) C ([\d.-]+) F")
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
         m = Acurite986Packet.PATTERN.search(lines[0])
         if m:
-            pkt['dateTime'] = ts
-            pkt['usUnits'] = weewx.METRIC
-            pkt['hardware_id'] = m.group(1)
-            pkt['channel'] = m.group(2)
-            pkt['temperature'] = float(m.group(3))
-            pkt['temperature_F'] = float(m.group(4))
+            pkt["dateTime"] = ts
+            pkt["usUnits"] = weewx.METRIC
+            pkt["hardware_id"] = m.group(1)
+            pkt["channel"] = m.group(2)
+            pkt["temperature"] = float(m.group(3))
+            pkt["temperature_F"] = float(m.group(4))
         else:
             loginf("Acurite986Packet: unrecognized data: '%s'" % lines[0])
         lines.pop(0)
@@ -868,16 +864,16 @@ class Acurite986Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['hardware_id'] = obj.get('id', 0)
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        if 'temperature_F' in obj:
-            pkt['usUnits'] = weewx.US
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["hardware_id"] = obj.get("id", 0)
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        if "temperature_F" in obj:
+            pkt["usUnits"] = weewx.US
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
         else:
-            pkt['usUnits'] = weewx.METRIC
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
+            pkt["usUnits"] = weewx.METRIC
+            pkt["temperature"] = Packet.get_float(obj, "temperature_C")
         return Acurite.insert_ids(pkt, Acurite986Packet.__name__)
 
 
@@ -896,26 +892,28 @@ class AcuriteLightningPacket(Packet):
     # {"time" : "2018-04-21 19:12:53", "model" : "Acurite Lightning 6045M", "id" : 151, "channel" : "C", "temperature_F" : 66.900, "humidity" : 33, "strike_count" : 47, "storm_dist" : 12, "active" : 1, "rfi" : 0, "ussb1" : 1, "battery" : "LOW", "exception" : 0, "raw_msg" : "0097af2150f9afcc2b"}
     # {"time" : "2020-10-13 22:49:34", "model" : "Acurite-6045M", "id" : 15431, "channel" : "A", "battery_ok" : 0, "temperature_F" : 91.800, "humidity" : 21, "strike_count" : 171, "storm_dist" : 12, "active" : 1, "rfi" : 0, "exception" : 0, "raw_msg" : "fc47af95d2de55cc58"}
 
-#    IDENTIFIER = "Acurite lightning"
-#    IDENTIFIER = "Acurite Lightning 6045M"
+    #    IDENTIFIER = "Acurite lightning"
+    #    IDENTIFIER = "Acurite Lightning 6045M"
     IDENTIFIER = "Acurite-6045M"
-    PATTERN = re.compile('0x([0-9a-fA-F]+) Ch (.) Msg Type 0x([0-9a-fA-F]+): ([\d.-]+) ([CF]) ([\d.]+) % RH Strikes ([\d]+) Distance ([\d.]+)')
+    PATTERN = re.compile(
+        r"0x([0-9a-fA-F]+) Ch (.) Msg Type 0x([0-9a-fA-F]+): ([\d.-]+) ([CF]) ([\d.]+) % RH Strikes (\d+) Distance ([\d.]+)"
+    )
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.US
-        pkt['channel'] = obj.get('channel')
-        pkt['hardware_id'] = "%04x" % obj.get('id', 0)
-        pkt['temperature'] = obj.get('temperature_F')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        pkt['humidity'] = obj.get('humidity')
-        pkt['active'] = obj.get('active')
-        pkt['rfi'] = obj.get('rfi')
-        pkt['exception'] = obj.get('exception')
-        pkt['strikes_total'] = obj.get('strike_count')
-        pkt['distance'] = obj.get('storm_dist')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.US
+        pkt["channel"] = obj.get("channel")
+        pkt["hardware_id"] = "%04x" % obj.get("id", 0)
+        pkt["temperature"] = obj.get("temperature_F")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["humidity"] = obj.get("humidity")
+        pkt["active"] = obj.get("active")
+        pkt["rfi"] = obj.get("rfi")
+        pkt["exception"] = obj.get("exception")
+        pkt["strikes_total"] = obj.get("strike_count")
+        pkt["distance"] = obj.get("storm_dist")
         return Acurite.insert_ids(pkt, AcuriteLightningPacket.__name__)
 
     @staticmethod
@@ -923,19 +921,19 @@ class AcuriteLightningPacket(Packet):
         pkt = dict()
         m = AcuriteLightningPacket.PATTERN.search(lines[0])
         if m:
-            pkt['dateTime'] = ts
+            pkt["dateTime"] = ts
             units = m.group(5)
-            if units == 'C':
-                pkt['usUnits'] = weewx.METRIC
+            if units == "C":
+                pkt["usUnits"] = weewx.METRIC
             else:
-                pkt['usUnits'] = weewx.US
-            pkt['hardware_id'] = m.group(1)
-            pkt['channel'] = m.group(2)
-            pkt['msg_type'] = m.group(3)
-            pkt['temperature'] = float(m.group(4))
-            pkt['humidity'] = float(m.group(6))
-            pkt['strikes_total'] = float(m.group(7))
-            pkt['distance'] = float(m.group(8))
+                pkt["usUnits"] = weewx.US
+            pkt["hardware_id"] = m.group(1)
+            pkt["channel"] = m.group(2)
+            pkt["msg_type"] = m.group(3)
+            pkt["temperature"] = float(m.group(4))
+            pkt["humidity"] = float(m.group(6))
+            pkt["strikes_total"] = float(m.group(7))
+            pkt["distance"] = float(m.group(8))
         else:
             loginf("AcuriteLightningPacket: unrecognized data: %s" % lines[0])
         lines.pop(0)
@@ -943,7 +941,6 @@ class AcuriteLightningPacket(Packet):
 
 
 class Acurite00275MPacket(Packet):
-
     # {"time" : "2017-03-09 21:59:11", "model" : "00275rm", "probe" : 2, "id" : 3942, "battery" : "OK", "temperature_C" : 23.300, "humidity" : 34, "ptemperature_C" : 22.700, "crc" : "ok"}
     # {"time" : "2017-03-09 21:59:11", "model" : "00275rm", "probe" : 2, "id" : 3942, "battery" : "OK", "temperature_C" : 23.300, "humidity" : 34, "temperature_1_C" : 22.700, "crc" : "ok"}
 
@@ -952,22 +949,21 @@ class Acurite00275MPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['hardware_id'] = "%04x" % obj.get('id', 0)
-        pkt['probe'] = obj.get('probe')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        if 'temperature_1_C' in obj:
-            pkt['temperature_probe'] = Packet.get_float(obj, 'temperature_1_C')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["hardware_id"] = "%04x" % obj.get("id", 0)
+        pkt["probe"] = obj.get("probe")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        if "temperature_1_C" in obj:
+            pkt["temperature_probe"] = Packet.get_float(obj, "temperature_1_C")
         else:
-            pkt['temperature_probe'] = Packet.get_float(obj, 'ptemperature_C')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
+            pkt["temperature_probe"] = Packet.get_float(obj, "ptemperature_C")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
         return Acurite.insert_ids(pkt, Acurite00275MPacket.__name__)
 
 
 class AcuriteWT450Packet(Packet):
-
     # {"time" : "2017-09-14 20:24:43", "model" : "WT450 sensor", "id" : 1, "channel" : 2, "battery" : "OK", "temperature_C" : 25.090, "humidity" : 49}
     # {"time" : "2017-09-14 20:24:44", "model" : "WT450 sensor", "id" : 1, "channel" : 2, "battery" : "OK", "temperature_C" : 25.110, "humidity" : 49}
     # {"time" : "2017-09-14 20:24:44", "model" : "WT450 sensor", "id" : 1, "channel" : 2, "battery" : "OK", "temperature_C" : 25.120, "humidity" : 49}
@@ -977,19 +973,18 @@ class AcuriteWT450Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['sid'] = Packet.get_int(obj, 'id')
-        pkt['channel'] = Packet.get_int(obj, 'channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        _id = "%s:%s" % (pkt['sid'], pkt['channel'])
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["sid"] = Packet.get_int(obj, "id")
+        pkt["channel"] = Packet.get_int(obj, "channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        _id = "%s:%s" % (pkt["sid"], pkt["channel"])
         return Packet.add_identifiers(pkt, _id, AcuriteWT450Packet.__name__)
 
 
 class Acurite515Packet(Packet):
-
     # refrigerator (XR) and freezer (XF) sensors
     # X is one of A, B, or C
     # "time" : "2022-01-21 21:55:54", "model" : "Acurite-515", "id" : 2375, "channel" : "BR", "battery_ok" : 1, "temperature_F" : 47.600, "mic" : "CHECKSUM"
@@ -1000,15 +995,15 @@ class Acurite515Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.US
-        pkt['hardware_id'] = "%04x" % obj.get('id', 0)
-        pkt['channel'] = Packet.get_int(obj, 'channel')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        if 'temperature_F' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        elif 'temperature_C' in obj:
-            pkt['temperature'] = to_F(Packet.get_float(obj, 'temperature_C'))
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.US
+        pkt["hardware_id"] = "%04x" % obj.get("id", 0)
+        pkt["channel"] = Packet.get_int(obj, "channel")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        if "temperature_F" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        elif "temperature_C" in obj:
+            pkt["temperature"] = to_F(Packet.get_float(obj, "temperature_C"))
         return Packet.insert_ids(pkt, Acurite515Packet.__name__)
 
 
@@ -1020,12 +1015,14 @@ class AlectoV1TemperaturePacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        station_id = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt = Packet.add_identifiers(pkt, station_id, AlectoV1TemperaturePacket.__name__)
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        station_id = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt = Packet.add_identifiers(
+            pkt, station_id, AlectoV1TemperaturePacket.__name__
+        )
         return pkt
 
 
@@ -1037,14 +1034,14 @@ class AlectoV1WindPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC  # FIXME: units have not been verified
-        station_id = obj.get('id')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_speed')
-        pkt['wind_gust'] = Packet.get_float(obj, 'wind_gust')
-        pkt['wind_dir'] = Packet.get_int(obj, 'wind_direction')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['channel'] = obj.get('channel')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC  # FIXME: units have not been verified
+        station_id = obj.get("id")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_speed")
+        pkt["wind_gust"] = Packet.get_float(obj, "wind_gust")
+        pkt["wind_dir"] = Packet.get_int(obj, "wind_direction")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["channel"] = obj.get("channel")
         pkt = Packet.add_identifiers(pkt, station_id, AlectoV1WindPacket.__name__)
         return pkt
 
@@ -1057,12 +1054,12 @@ class AlectoV1RainPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC # FIXME: units have not been verified
-        station_id = obj.get('id')
-        pkt['rain_total'] = Packet.get_float(obj, 'rain_total')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['channel'] = obj.get('channel')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC  # FIXME: units have not been verified
+        station_id = obj.get("id")
+        pkt["rain_total"] = Packet.get_float(obj, "rain_total")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["channel"] = obj.get("channel")
         pkt = Packet.add_identifiers(pkt, station_id, AlectoV1RainPacket.__name__)
         return pkt
 
@@ -1074,26 +1071,25 @@ class AmbientF007THPacket(Packet):
     # Temperature: 61.8
     # Humidity: 13 %
 
-#    IDENTIFIER = "Ambient Weather F007TH Thermo-Hygrometer"
+    #    IDENTIFIER = "Ambient Weather F007TH Thermo-Hygrometer"
     IDENTIFIER = "Ambientweather-F007TH"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Temperature': [
-            'temperature', re.compile('([\d.-]+) F'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) F"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, AmbientF007THPacket.PARSEINFO))
-        house_code = pkt.pop('house_code', 0)
-        channel = pkt.pop('channel', 0)
+        house_code = pkt.pop("house_code", 0)
+        channel = pkt.pop("channel", 0)
         sensor_id = "%s:%s" % (channel, house_code)
-        pkt = Packet.add_identifiers(
-            pkt, sensor_id, AmbientF007THPacket.__name__)
+        pkt = Packet.add_identifiers(pkt, sensor_id, AmbientF007THPacket.__name__)
         return pkt
 
     # {"time" : "2017-01-21 13:01:30", "model" : "Ambient Weather F007TH Thermo-Hygrometer", "device" : 80, "channel" : 1, "temperature_F" : 61.800, "humidity" : 10}
@@ -1103,20 +1099,18 @@ class AmbientF007THPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.US
-        house_code = obj.get('device', 0)
-        channel = obj.get('channel')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.US
+        house_code = obj.get("device", 0)
+        channel = obj.get("channel")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
         sensor_id = "%s:%s" % (channel, house_code)
-        pkt = Packet.add_identifiers(
-            pkt, sensor_id, AmbientF007THPacket.__name__)
+        pkt = Packet.add_identifiers(pkt, sensor_id, AmbientF007THPacket.__name__)
         return pkt
 
 
 class AmbientWH31EPacket(Packet):
-
     # {"time" : "2019-02-14 17:24:41.259441", "protocol" : 113, "model" : "AmbientWeather-WH31E", "id" : 24, "channel" : 1, "battery" : "OK", "temperature_C" : 6.000, "humidity" : 42, "data" :"2f00000000", "mic" : "CRC", "mod" : "FSK", "freq1" : 914.984, "freq2" : 914.906, "rssi" : -13.328, "snr" : 13.197, "noise" : -26.525}
 
     IDENTIFIER = "AmbientWeather-WH31E"
@@ -1124,21 +1118,21 @@ class AmbientWH31EPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['channel'] = Packet.get_int(obj, 'channel')
-        pkt['rssi'] = Packet.get_int(obj, 'rssi')
-        pkt['snr'] = Packet.get_float(obj, 'snr')
-        pkt['noise'] = Packet.get_float(obj, 'noise')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["channel"] = Packet.get_int(obj, "channel")
+        pkt["rssi"] = Packet.get_int(obj, "rssi")
+        pkt["snr"] = Packet.get_float(obj, "snr")
+        pkt["noise"] = Packet.get_float(obj, "noise")
         return AmbientWH31EPacket.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         pkt = Packet.add_identifiers(pkt, station_id, AmbientWH31EPacket.__name__)
         return pkt
 
@@ -1156,21 +1150,20 @@ class CalibeurRF104Packet(Packet):
 
     IDENTIFIER = "Calibeur RF-104"
     PARSEINFO = {
-        'ID': ['id', None, lambda x: int(x)],
-        'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+        "ID": ["id", None, lambda x: int(x)],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, CalibeurRF104Packet.PARSEINFO))
-        pkt_id = pkt.pop('id', 0)
+        pkt_id = pkt.pop("id", 0)
         sensor_id = "%s" % pkt_id
-        pkt = Packet.add_identifiers(
-            pkt, sensor_id, CalibeurRF104Packet.__name__)
+        pkt = Packet.add_identifiers(pkt, sensor_id, CalibeurRF104Packet.__name__)
         return pkt
 
 
@@ -1184,15 +1177,15 @@ class EcoWittWH40Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        pkt['rain_total'] = Packet.get_float(obj, 'rain_mm')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        pkt["rain_total"] = Packet.get_float(obj, "rain_mm")
         return EcoWittWH40Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', 0)
+        station_id = pkt.pop("station_id", 0)
         return Packet.add_identifiers(pkt, station_id, EcoWittWH40Packet.__name__)
 
 
@@ -1216,48 +1209,47 @@ class FOWH1080Packet(Packet):
 
     IDENTIFIER = "Fine Offset WH1080 weather station"
     PARSEINFO = {
-#        'Msg type': ['msg_type', None, None],
-        'StationID': ['station_id', None, None],
-        'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': [
-            'humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
-#        'Wind string': ['wind_dir_ord', None, None],
-        'Wind degrees': ['wind_dir', None, lambda x: int(x)],
-        'Wind avg speed': ['wind_speed', None, lambda x: float(x)],
-        'Wind gust': ['wind_gust', None, lambda x: float(x)],
-        'Total rainfall': ['rain_total', None, lambda x: float(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1]}
+        #        'Msg type': ['msg_type', None, None],
+        "StationID": ["station_id", None, None],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+        #        'Wind string': ['wind_dir_ord', None, None],
+        "Wind degrees": ["wind_dir", None, lambda x: int(x)],
+        "Wind avg speed": ["wind_speed", None, lambda x: float(x)],
+        "Wind gust": ["wind_gust", None, lambda x: float(x)],
+        "Total rainfall": ["rain_total", None, lambda x: float(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, FOWH1080Packet.PARSEINFO))
         return FOWH1080Packet.insert_ids(pkt)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['station_id'] = obj.get('id')
-        pkt['msg_type'] = Packet.get_int(obj, 'msg_type')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['wind_dir'] = Packet.get_float(obj, 'direction_deg')
-        pkt['wind_speed'] = Packet.get_float(obj, 'speed')
-        pkt['wind_gust'] = Packet.get_float(obj, 'gust')
-        rain_total = Packet.get_float(obj, 'rain')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["station_id"] = obj.get("id")
+        pkt["msg_type"] = Packet.get_int(obj, "msg_type")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["wind_dir"] = Packet.get_float(obj, "direction_deg")
+        pkt["wind_speed"] = Packet.get_float(obj, "speed")
+        pkt["wind_gust"] = Packet.get_float(obj, "gust")
+        rain_total = Packet.get_float(obj, "rain")
         if rain_total is not None:
-            pkt['rain_total'] = rain_total / 10.0 # convert to cm
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
+            pkt["rain_total"] = rain_total / 10.0  # convert to cm
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
         return FOWH1080Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH1080Packet.__name__)
 
 
@@ -1298,45 +1290,45 @@ class FOWHx080Packet(Packet):
     # this assumes rain total is in mm (as of dec 2019)
     # this assumes wind speed is kph (as of dec 2019)
 
-    #IDENTIFIER = "Fine Offset Electronics WH1080 / WH3080 Weather Station"
-    #IDENTIFIER = "Fine Offset Electronics WH1080/WH3080 Weather Station"
-    #IDENTIFIER = "Fine Offset Electronics WH1080"
+    # IDENTIFIER = "Fine Offset Electronics WH1080 / WH3080 Weather Station"
+    # IDENTIFIER = "Fine Offset Electronics WH1080/WH3080 Weather Station"
+    # IDENTIFIER = "Fine Offset Electronics WH1080"
     IDENTIFIER = "Fineoffset-WHx080"
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
         # older versions of rlt_433 user 'station_id'
-        if 'station_id' in obj:
-            pkt['station_id'] = obj.get('station_id')
+        if "station_id" in obj:
+            pkt["station_id"] = obj.get("station_id")
         # but some newer versions of rtl_433 seem to use 'id'
-        if 'id' in obj:
-            pkt['station_id'] = obj.get('id')
-        pkt['msg_type'] = Packet.get_int(obj, 'msg_type')
-        pkt['msg_type'] = Packet.get_int(obj, 'subtype')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_km_h')
-        pkt['wind_gust'] = Packet.get_float(obj, 'wind_max_km_h')
-        rain_total = Packet.get_float(obj, 'rain_mm')
+        if "id" in obj:
+            pkt["station_id"] = obj.get("id")
+        pkt["msg_type"] = Packet.get_int(obj, "msg_type")
+        pkt["msg_type"] = Packet.get_int(obj, "subtype")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_km_h")
+        pkt["wind_gust"] = Packet.get_float(obj, "wind_max_km_h")
+        rain_total = Packet.get_float(obj, "rain_mm")
         if rain_total is not None:
-            pkt['rain_total'] = rain_total / 10.0 # convert to cm
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        pkt['signal_type'] = 1 if obj.get('signal_type') == 'WWVB / MSF' else 0
-        pkt['hours'] = Packet.get_int(obj, 'hours')
-        pkt['minutes'] = Packet.get_int(obj, 'minutes')
-        pkt['seconds'] = Packet.get_int(obj, 'seconds')
-        pkt['year'] = Packet.get_int(obj, 'year')
-        pkt['month'] = Packet.get_int(obj, 'month')
-        pkt['day'] = Packet.get_int(obj, 'day')
+            pkt["rain_total"] = rain_total / 10.0  # convert to cm
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["signal_type"] = 1 if obj.get("signal_type") == "WWVB / MSF" else 0
+        pkt["hours"] = Packet.get_int(obj, "hours")
+        pkt["minutes"] = Packet.get_int(obj, "minutes")
+        pkt["seconds"] = Packet.get_int(obj, "seconds")
+        pkt["year"] = Packet.get_int(obj, "year")
+        pkt["month"] = Packet.get_int(obj, "month")
+        pkt["day"] = Packet.get_int(obj, "day")
         return FOWHx080Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWHx080Packet.__name__)
 
 
@@ -1357,20 +1349,20 @@ class FOWH3080Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['station_id'] = obj.get('uv_sensor_id')
-        pkt['msg_type'] = Packet.get_int(obj, 'msg_type')
-        pkt['uv_index'] = Packet.get_float(obj, 'uv_index')
-        pkt['luminosity'] = Packet.get_float(obj, 'lux')
-        pkt['radiation'] = Packet.get_float(obj, 'wm')
-        pkt['illumination'] = Packet.get_float(obj, 'fc')
-        pkt['uv_status'] = 0 if obj.get('uv_status') == 'OK' else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["station_id"] = obj.get("uv_sensor_id")
+        pkt["msg_type"] = Packet.get_int(obj, "msg_type")
+        pkt["uv_index"] = Packet.get_float(obj, "uv_index")
+        pkt["luminosity"] = Packet.get_float(obj, "lux")
+        pkt["radiation"] = Packet.get_float(obj, "wm")
+        pkt["illumination"] = Packet.get_float(obj, "fc")
+        pkt["uv_status"] = 0 if obj.get("uv_status") == "OK" else 1
         return FOWH3080Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH3080Packet.__name__)
 
 
@@ -1385,25 +1377,24 @@ class FOWH24Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_speed_ms')
-        pkt['wind_gust'] = Packet.get_float(obj, 'gust_speed_ms')
-        pkt['rain_total'] = Packet.get_float(obj, 'rainfall_mm')
-        pkt['uv_index'] = Packet.get_float(obj, 'uvi')
-        pkt['light'] = Packet.get_float(obj, 'light_lux')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_speed_ms")
+        pkt["wind_gust"] = Packet.get_float(obj, "gust_speed_ms")
+        pkt["rain_total"] = Packet.get_float(obj, "rainfall_mm")
+        pkt["uv_index"] = Packet.get_float(obj, "uvi")
+        pkt["light"] = Packet.get_float(obj, "light_lux")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
         return FOWH24Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH24Packet.__name__)
-
 
 
 class FOWH24BPacket(Packet):
@@ -1417,23 +1408,23 @@ class FOWH24BPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_m_s')
-        pkt['wind_gust'] = Packet.get_float(obj, 'wind_max_m_s')
-        pkt['rain_total'] = Packet.get_float(obj, 'rain_mm')
-        pkt['uv_index'] = Packet.get_float(obj, 'uvi')
-        pkt['light'] = Packet.get_float(obj, 'light_lux')
-        pkt['battery'] = 0 if Packet.get_float(obj, 'battery_ok') == 1 else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_m_s")
+        pkt["wind_gust"] = Packet.get_float(obj, "wind_max_m_s")
+        pkt["rain_total"] = Packet.get_float(obj, "rain_mm")
+        pkt["uv_index"] = Packet.get_float(obj, "uvi")
+        pkt["light"] = Packet.get_float(obj, "light_lux")
+        pkt["battery"] = 0 if Packet.get_float(obj, "battery_ok") == 1 else 1
         return FOWH24BPacket.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH24BPacket.__name__)
 
 
@@ -1461,78 +1452,76 @@ class FOWH25Packet(Packet):
     IDENTIFIER = "Fineoffset-WH25"
 
     PARSEINFO = {
-        'ID': ['station_id', None, lambda x: int(x)],
-        'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
-        'Pressure':
-            ['pressure', re.compile('([\d.-]+) hPa'), lambda x: float(x)]}
+        "ID": ["station_id", None, lambda x: int(x)],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+        "Pressure": ["pressure", re.compile(r"([\d.-]+) hPa"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, FOWH25Packet.PARSEINFO))
         return FOWH25Packet.insert_ids(pkt)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['pressure'] = Packet.get_float(obj, 'pressure_hPa')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["pressure"] = Packet.get_float(obj, "pressure_hPa")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
         return FOWH25Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH25Packet.__name__)
 
 
 class FOWH25BPacket(Packet):
     # This is for another WH25 (probably the EU-model or some kind of clone?)
     # IDENTIFIER is *almost* the same and some of the keys are named slightly different
-    
+
     # {"time" : "2020-08-01 14:03:16", "model" : "Fineoffset-WH25", "id" : 19, "battery_ok" : 1, "temperature_C" : 26.100, "humidity" : 49, "pressure_hPa" : 987.800, "mic" : "CRC"}
-    
+
     IDENTIFIER = "Fineoffset-WH25"
-    
+
     PARSEINFO = {
-        'ID': ['station_id', None, lambda x: int(x)],
-        'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
-        'Pressure':
-            ['pressure', re.compile('([\d.-]+) hPa'), lambda x: float(x)]}
+        "ID": ["station_id", None, lambda x: int(x)],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+        "Pressure": ["pressure", re.compile(r"([\d.-]+) hPa"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, FOWH25BPacket.PARSEINFO))
         return FOWH25BPacket.insert_ids(pkt)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['pressure'] = Packet.get_float(obj, 'pressure_hPa')
-        pkt['battery'] = 0 if Packet.get_float(obj, 'battery_ok') == 1 else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["pressure"] = Packet.get_float(obj, "pressure_hPa")
+        pkt["battery"] = 0 if Packet.get_float(obj, "battery_ok") == 1 else 1
         return FOWH25BPacket.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH25BPacket.__name__)
 
 
@@ -1541,31 +1530,30 @@ class FOWH2Packet(Packet):
 
     IDENTIFIER = "Fine Offset Electronics, WH2"
     PARSEINFO = {
-        'ID': ['station_id', None, lambda x: int(x)],
-        'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)]
-        }
+        "ID": ["station_id", None, lambda x: int(x)],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, FOWH2Packet.PARSEINFO))
         return FOWH2Packet.insert_ids(pkt)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
         return FOWH2Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH2Packet.__name__)
 
 
@@ -1589,18 +1577,18 @@ class FOWH32BPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['pressure'] = Packet.get_float(obj, 'pressure_hPa')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["pressure"] = Packet.get_float(obj, "pressure_hPa")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
         return FOWH32BPacket.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH32BPacket.__name__)
 
 
@@ -1609,61 +1597,61 @@ class FOWH5Packet(Packet):
 
     IDENTIFIER = "Fine Offset WH5 sensor"
     PARSEINFO = {
-        'ID': ['station_id', None, lambda x: int(x)],
-        'Temperature': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)]
+        "ID": ["station_id", None, lambda x: int(x)],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
     }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, FOWH5Packet.PARSEINFO))
         return FOWH5Packet.insert_ids(pkt)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
         return FOWH5Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH5Packet.__name__)
 
 
 class FOWH51Packet(Packet):
     # This is for a WH051 Soil Moisture Sensor (Fine Offset / Ecowitt WH51)
-    #{"time" : "2021-04-15 15:07:05", "model" : "Fineoffset-WH51", "id" : "00df73", "battery_ok" : 1.000, "battery_mV" : 1600, "moisture" : 0, "boost" : 0, "ad_raw" : 17, "mic" : "CRC", "mod" : "FSK", "freq1" : 915.024, "freq2" : 914.970, "rssi" : -2.258, "snr" : 35.115, "noise" : -37.373}
+    # {"time" : "2021-04-15 15:07:05", "model" : "Fineoffset-WH51", "id" : "00df73", "battery_ok" : 1.000, "battery_mV" : 1600, "moisture" : 0, "boost" : 0, "ad_raw" : 17, "mic" : "CRC", "mod" : "FSK", "freq1" : 915.024, "freq2" : 914.970, "rssi" : -2.258, "snr" : 35.115, "noise" : -37.373}
 
     IDENTIFIER = "Fineoffset-WH51"
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['usUnits'] = weewx.METRIC
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['station_id'] = obj.get('id')
-        pkt['soil_moisture_percent'] = Packet.get_float(obj, 'moisture')
-        pkt['boost'] = Packet.get_float(obj, 'boost')
-        pkt['soil_moisture_raw'] = Packet.get_float(obj, 'ad_raw')
-        pkt['freq1'] = Packet.get_float(obj, 'freq1')
-        pkt['freq2'] = Packet.get_float(obj, 'freq2')
-        pkt['battery_ok'] = Packet.get_float(obj, 'battery_ok')
-        pkt['battery_mV'] = Packet.get_float(obj, 'battery_mV')
-        pkt['snr'] = Packet.get_float(obj, 'snr')
-        pkt['rssi'] = Packet.get_float(obj, 'rssi')
-        pkt['noise'] = Packet.get_float(obj, 'noise')
+        pkt["usUnits"] = weewx.METRIC
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["station_id"] = obj.get("id")
+        pkt["soil_moisture_percent"] = Packet.get_float(obj, "moisture")
+        pkt["boost"] = Packet.get_float(obj, "boost")
+        pkt["soil_moisture_raw"] = Packet.get_float(obj, "ad_raw")
+        pkt["freq1"] = Packet.get_float(obj, "freq1")
+        pkt["freq2"] = Packet.get_float(obj, "freq2")
+        pkt["battery_ok"] = Packet.get_float(obj, "battery_ok")
+        pkt["battery_mV"] = Packet.get_float(obj, "battery_mV")
+        pkt["snr"] = Packet.get_float(obj, "snr")
+        pkt["rssi"] = Packet.get_float(obj, "rssi")
+        pkt["noise"] = Packet.get_float(obj, "noise")
         return FOWH51Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH51Packet.__name__)
 
 
@@ -1692,24 +1680,24 @@ class FOWH65BPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_speed_ms')
-        pkt['wind_gust'] = Packet.get_float(obj, 'gust_speed_ms')
-        pkt['rain_total'] = Packet.get_float(obj, 'rainfall_mm')
-        pkt['uv'] = Packet.get_float(obj, 'uv')
-        pkt['uv_index'] = Packet.get_float(obj, 'uvi')
-        pkt['light'] = Packet.get_float(obj, 'light_lux')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_speed_ms")
+        pkt["wind_gust"] = Packet.get_float(obj, "gust_speed_ms")
+        pkt["rain_total"] = Packet.get_float(obj, "rainfall_mm")
+        pkt["uv"] = Packet.get_float(obj, "uv")
+        pkt["uv_index"] = Packet.get_float(obj, "uvi")
+        pkt["light"] = Packet.get_float(obj, "light_lux")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
         return FOWH65BPacket.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH65BPacket.__name__)
 
 
@@ -1741,74 +1729,75 @@ class FOWH65BAltPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_m_s')
-        pkt['wind_gust'] = Packet.get_float(obj, 'wind_max_m_s')
-        pkt['rain_total'] = Packet.get_float(obj, 'rain_mm')
-        pkt['uv'] = Packet.get_float(obj, 'uv') # superfluous?
-        pkt['uv_index'] = Packet.get_float(obj, 'uvi')
-        pkt['light'] = Packet.get_float(obj, 'light_lux') # superfluous?
-        pkt['battery'] = 0 if Packet.get_int(obj, 'battery_ok') == 1 else 0
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_m_s")
+        pkt["wind_gust"] = Packet.get_float(obj, "wind_max_m_s")
+        pkt["rain_total"] = Packet.get_float(obj, "rain_mm")
+        pkt["uv"] = Packet.get_float(obj, "uv")  # superfluous?
+        pkt["uv_index"] = Packet.get_float(obj, "uvi")
+        pkt["light"] = Packet.get_float(obj, "light_lux")  # superfluous?
+        pkt["battery"] = 0 if Packet.get_int(obj, "battery_ok") == 1 else 0
         return FOWH65BAltPacket.insert_ids(pkt)
-    
+
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH65BAltPacket.__name__)
 
 
 class FOWH0290Packet(Packet):
     # This is for a WH0290 Air Quality Monitor (Ambient Weather PM25)
 
-    #{"time" : "@0.084044s", "model" : "Fine Offset Electronics, WH0290", "id" : 204, "pm2_5_ug_m3" : 9, "pm10_0_ug_m3" : 10, "mic" : "CHECKSUM"}
+    # {"time" : "@0.084044s", "model" : "Fine Offset Electronics, WH0290", "id" : 204, "pm2_5_ug_m3" : 9, "pm10_0_ug_m3" : 10, "mic" : "CHECKSUM"}
 
     IDENTIFIER = "Fine Offset Electronics, WH0290"
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['usUnits'] = weewx.METRIC
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['station_id'] = obj.get('id')
-        pkt['pm2_5_atm'] = Packet.get_float(obj, 'pm2_5_ug_m3')
-        pkt['pm10_0_atm'] = Packet.get_float(obj, 'pm10_0_ug_m3')
+        pkt["usUnits"] = weewx.METRIC
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["station_id"] = obj.get("id")
+        pkt["pm2_5_atm"] = Packet.get_float(obj, "pm2_5_ug_m3")
+        pkt["pm10_0_atm"] = Packet.get_float(obj, "pm10_0_ug_m3")
         return FOWH0290Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH0290Packet.__name__)
 
 
 class FOWH31LPacket(Packet):
     # This is for a WH31L lightning detector
 
-    #{"time" : "2021-06-30 20:37:11", "model" : "FineOffset-WH31L", "id" : 67016, "battery_ok" : 0, "state" : 8, "flags" : 56, "storm_dist_km" : 10, "strike_count" : 2, "mic" : "CRC"}
+    # {"time" : "2021-06-30 20:37:11", "model" : "FineOffset-WH31L", "id" : 67016, "battery_ok" : 0, "state" : 8, "flags" : 56, "storm_dist_km" : 10, "strike_count" : 2, "mic" : "CRC"}
 
     IDENTIFIER = "FineOffset-WH31L"
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['usUnits'] = weewx.METRIC
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['station_id'] = obj.get('id')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        pkt['strikes_total'] = obj.get('strike_count')
-        pkt['distance'] = obj.get('storm_dist_km')
-        pkt['flags'] = obj.get('flags')
-        pkt['state'] = obj.get('state')
+        pkt["usUnits"] = weewx.METRIC
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["station_id"] = obj.get("id")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["strikes_total"] = obj.get("strike_count")
+        pkt["distance"] = obj.get("storm_dist_km")
+        pkt["flags"] = obj.get("flags")
+        pkt["state"] = obj.get("state")
         return FOWH31LPacket.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, FOWH31LPacket.__name__)
+
 
 class AuriolHG02832Packet(Packet):
     IDENTIFIER = "Auriol-HG02832"
@@ -1820,14 +1809,14 @@ class AuriolHG02832Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['sid'] = Packet.get_int(obj, 'id')
-        pkt['channel'] = Packet.get_int(obj, 'channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        _id = "%s:%s" % (pkt['sid'], pkt['channel'])
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["sid"] = Packet.get_int(obj, "id")
+        pkt["channel"] = Packet.get_int(obj, "channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        _id = "%s:%s" % (pkt["sid"], pkt["channel"])
         pkt = Packet.add_identifiers(pkt, _id, AuriolHG02832Packet.__name__)
         return pkt
 
@@ -1835,8 +1824,8 @@ class AuriolHG02832Packet(Packet):
 class Hideki(object):
     @staticmethod
     def insert_ids(pkt, pkt_type):
-        channel = pkt.pop('channel', 0)
-        code = pkt.pop('rolling_code', 0)
+        channel = pkt.pop("channel", 0)
+        code = pkt.pop("rolling_code", 0)
         sensor_id = "%s:%s" % (channel, code)
         pkt = Packet.add_identifiers(pkt, sensor_id, pkt_type)
         return pkt
@@ -1855,31 +1844,31 @@ class HidekiTS04Packet(Packet):
 
     IDENTIFIER = "Hideki-TS04"
     PARSEINFO = {
-        'Rolling Code': ['rolling_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+        "Rolling Code": ["rolling_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, HidekiTS04Packet.PARSEINFO))
         return Hideki.insert_ids(pkt, HidekiTS04Packet.__name__)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['rolling_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["rolling_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
         return Hideki.insert_ids(pkt, HidekiTS04Packet.__name__)
 
 
@@ -1896,66 +1885,70 @@ class HidekiWindPacket(Packet):
     # {"time" : "2019-11-24 19:13:41", "model" : "HIDEKI Wind sensor", "rc" : 3, "channel" : 4, "battery" : "OK", "temperature_C" : 11.000, "wind_speed_mph" : 1.300, "gust_speed_mph" : 0.100, "wind_approach" : 1, "wind_direction" : 270.000, "mic" : "CRC"}
     # {"time" : "2021-02-07 03:44:54", "model" : "Hideki-Wind", "id" : 8, "channel" : 4, "battery_ok" : 1, "temperature_C" : 15.200, "wind_avg_mi_h" : 2.600, "wind_max_mi_h" : 2.900, "wind_approach" : 1, "wind_dir_deg" : 337.500, "mic" : "CRC"}
 
-#    IDENTIFIER = "HIDEKI Wind sensor"
+    #    IDENTIFIER = "HIDEKI Wind sensor"
     IDENTIFIER = "Hideki-Wind"
 
     PARSEINFO = {
-        'Rolling Code': ['rolling_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Wind Strength': ['wind_speed', re.compile('([\d.]+) km/h'), lambda x: float(x)],
-        'Direction': ['wind_dir', re.compile('([\d.]+) '), lambda x: float(x)]}
+        "Rolling Code": ["rolling_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Wind Strength": [
+            "wind_speed",
+            re.compile(r"([\d.]+) km/h"),
+            lambda x: float(x),
+        ],
+        "Direction": ["wind_dir", re.compile(r"([\d.]+) "), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, HidekiWindPacket.PARSEINFO))
         return Hideki.insert_ids(pkt, HidekiWindPacket.__name__)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['rolling_code'] = obj.get('rc')
-        pkt['channel'] = obj.get('channel')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        if 'wind_avg_mi_h' in obj:
-            v = Packet.get_float(obj, 'wind_avg_mi_h')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["rolling_code"] = obj.get("rc")
+        pkt["channel"] = obj.get("channel")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        if "wind_avg_mi_h" in obj:
+            v = Packet.get_float(obj, "wind_avg_mi_h")
             if v is not None:
                 v /= weewx.units.MILE_PER_KM
-            pkt['wind_speed'] = v
-        elif 'wind_speed_mph' in obj:
-            v = Packet.get_float(obj, 'wind_speed_mph')
+            pkt["wind_speed"] = v
+        elif "wind_speed_mph" in obj:
+            v = Packet.get_float(obj, "wind_speed_mph")
             if v is not None:
                 v /= weewx.units.MILE_PER_KM
-            pkt['wind_speed'] = v
+            pkt["wind_speed"] = v
         else:
-            pkt['wind_speed'] = Packet.get_float(obj, 'windstrength')
-        if 'wind_dir_deg' in obj:
-            pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        elif 'wind_direction' in obj:
-            pkt['wind_dir'] = Packet.get_float(obj, 'wind_direction')
+            pkt["wind_speed"] = Packet.get_float(obj, "windstrength")
+        if "wind_dir_deg" in obj:
+            pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        elif "wind_direction" in obj:
+            pkt["wind_dir"] = Packet.get_float(obj, "wind_direction")
         else:
-            pkt['wind_dir'] = Packet.get_float(obj, 'winddirection')
-        if 'wind_max_mi_h' in obj:
-            v = Packet.get_float(obj, 'wind_max_mi_h')
+            pkt["wind_dir"] = Packet.get_float(obj, "winddirection")
+        if "wind_max_mi_h" in obj:
+            v = Packet.get_float(obj, "wind_max_mi_h")
             if v is not None:
                 v /= weewx.units.MILE_PER_KM
-            pkt['wind_gust'] = v
-        elif 'gust_speed_mph' in obj:
-            v = Packet.get_float(obj, 'gust_speed_mph')
+            pkt["wind_gust"] = v
+        elif "gust_speed_mph" in obj:
+            v = Packet.get_float(obj, "gust_speed_mph")
             if v is not None:
                 v /= weewx.units.MILE_PER_KM
-            pkt['wind_gust'] = v
-        if 'battery' in obj:
-            pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        if 'battery_ok' in obj:
-            pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
+            pkt["wind_gust"] = v
+        if "battery" in obj:
+            pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        if "battery_ok" in obj:
+            pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
         return Hideki.insert_ids(pkt, HidekiWindPacket.__name__)
 
 
@@ -1970,38 +1963,39 @@ class HidekiRainPacket(Packet):
     # {"time" : "2019-11-24 19:13:52", "model" : "HIDEKI Rain sensor", "rc" : 0, "channel" : 4, "battery" : "OK", "rain_mm" : 274.400, "mic" : "CRC"}
     # {"time" : "2021-02-07 03:45:10", "model" : "Hideki-Rain", "id" : 0, "channel" : 4, "battery_ok" : 1, "rain_mm" : 1382.500, "mic" : "CRC"}
 
-#    IDENTIFIER = "HIDEKI Rain sensor"
+    #    IDENTIFIER = "HIDEKI Rain sensor"
     IDENTIFIER = "Hideki-Rain"
 
     PARSEINFO = {
-        'Rolling Code': ['rolling_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Rain': ['rain_total', re.compile('([\d.]+) '), lambda x: float(x)]}
+        "Rolling Code": ["rolling_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Rain": ["rain_total", re.compile(r"([\d.]+) "), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, HidekiRainPacket.PARSEINFO))
         return Hideki.insert_ids(pkt, HidekiRainPacket.__name__)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['rolling_code'] = obj.get('rc')
-        pkt['channel'] = obj.get('channel')
-        if 'rain_mm' in obj:
-            pkt['rain_total'] = Packet.get_float(obj, 'rain_mm')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["rolling_code"] = obj.get("rc")
+        pkt["channel"] = obj.get("channel")
+        if "rain_mm" in obj:
+            pkt["rain_total"] = Packet.get_float(obj, "rain_mm")
         else:
-            pkt['rain_total'] = Packet.get_float(obj, 'rain')
-        if 'battery' in obj:
-            pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        if 'battery_ok' in obj:
-            pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
+            pkt["rain_total"] = Packet.get_float(obj, "rain")
+        if "battery" in obj:
+            pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        if "battery_ok" in obj:
+            pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
         return Hideki.insert_ids(pkt, HidekiRainPacket.__name__)
 
 
@@ -2013,19 +2007,19 @@ class HolmanWS5029Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['wind_dir'] = Packet.get_float(obj, 'direction_deg')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_km_h')
-        pkt['rain_total'] = Packet.get_float(obj, 'rain_mm')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["wind_dir"] = Packet.get_float(obj, "direction_deg")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_km_h")
+        pkt["rain_total"] = Packet.get_float(obj, "rain_mm")
         return HolmanWS5029Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         return Packet.add_identifiers(pkt, station_id, HolmanWS5029Packet.__name__)
 
 
@@ -2037,13 +2031,13 @@ class InFactoryTHPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.US
-        sensor_id = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_F')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        pkt['channel'] = obj.get('channel')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.US
+        sensor_id = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_F")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["channel"] = obj.get("channel")
         pkt = Packet.add_identifiers(pkt, sensor_id, InFactoryTHPacket.__name__)
         return pkt
 
@@ -2057,16 +2051,16 @@ class LaCrosseBreezeProPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['usUnits'] = weewx.METRIC
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['model'] = obj.get('model')
-        pkt['hardware_id'] = "%d" % obj.get('id', 0)
-        pkt['sequence_num'] = Packet.get_int(obj, 'seq')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_km_h')
-        pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        sensor_id = str(pkt.pop('hardware_id', '0000')).upper()
+        pkt["usUnits"] = weewx.METRIC
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["model"] = obj.get("model")
+        pkt["hardware_id"] = "%d" % obj.get("id", 0)
+        pkt["sequence_num"] = Packet.get_int(obj, "seq")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_km_h")
+        pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        sensor_id = str(pkt.pop("hardware_id", "0000")).upper()
         return Packet.add_identifiers(pkt, sensor_id, LaCrosseBreezeProPacket.__name__)
 
 
@@ -2087,57 +2081,54 @@ class LaCrosseWSPacket(Packet):
 
     IDENTIFIER = "LaCrosse WS"
     PARSEINFO = {
-        'Wind speed': [
-            'wind_speed', re.compile('([\d.]+) m/s'), lambda x: float(x)],
-        'Direction': ['wind_dir', None, lambda x: float(x)],
-        'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', None, lambda x: int(x)],
-        'Rainfall': [
-            'rain_total', re.compile('([\d.]+) mm'), lambda x: float(x)]}
+        "Wind speed": ["wind_speed", re.compile(r"([\d.]+) m/s"), lambda x: float(x)],
+        "Direction": ["wind_dir", None, lambda x: float(x)],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", None, lambda x: int(x)],
+        "Rainfall": ["rain_total", re.compile(r"([\d.]+) mm"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRICWX
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRICWX
         pkt.update(Packet.parse_lines(lines, LaCrosseWSPacket.PARSEINFO))
-        parts = payload.split(':')
+        parts = payload.split(":")
         if len(parts) == 3:
-            pkt['ws_id'] = parts[1].strip()
-            pkt['hw_id'] = parts[2].strip()
+            pkt["ws_id"] = parts[1].strip()
+            pkt["hw_id"] = parts[2].strip()
         return LaCrosseWSPacket.insert_ids(pkt)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['ws_id'] = obj.get('ws_id')
-        pkt['hw_id'] = obj.get('id')
-        if 'temperature_C' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        if 'humidity' in obj:
-            pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        if 'wind_speed_ms' in obj:
-            pkt['wind_speed'] = Packet.get_float(obj, 'wind_speed_ms')
-        if 'wind_direction' in obj:
-            pkt['wind_dir'] = Packet.get_float(obj, 'wind_direction')
-        if 'rain' in obj:
-            pkt['rain_total'] = Packet.get_float(obj, 'rain')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["ws_id"] = obj.get("ws_id")
+        pkt["hw_id"] = obj.get("id")
+        if "temperature_C" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        if "humidity" in obj:
+            pkt["humidity"] = Packet.get_float(obj, "humidity")
+        if "wind_speed_ms" in obj:
+            pkt["wind_speed"] = Packet.get_float(obj, "wind_speed_ms")
+        if "wind_direction" in obj:
+            pkt["wind_dir"] = Packet.get_float(obj, "wind_direction")
+        if "rain" in obj:
+            pkt["rain_total"] = Packet.get_float(obj, "rain")
         return LaCrosseWSPacket.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        ws_id = pkt.pop('ws_id', 0)
-        hardware_id = pkt.pop('hw_id', 0)
+        ws_id = pkt.pop("ws_id", 0)
+        hardware_id = pkt.pop("hw_id", 0)
         sensor_id = "%s:%s" % (ws_id, hardware_id)
         pkt = Packet.add_identifiers(pkt, sensor_id, LaCrosseWSPacket.__name__)
         return pkt
 
 
 class LaCrosseTX141THBv2Packet(Packet):
-
     # {"time" : "2017-01-16 15:24:43", "temperature" : 54.140, "humidity" : 34, "id" : 221, "model" : "LaCrosse TX141TH-Bv2 sensor", "battery" : "OK", "test" : "Yes"}
     # {"time" : "2020-10-28 00:22:25", "model" : "LaCrosse-TX141THBv2", "id" : 50, "channel" : 0, "battery_ok" : 1, "temperature_C" : -0.600, "humidity" : 60, "test" : "No"}
     IDENTIFIER = "LaCrosse-TX141THBv2"
@@ -2145,12 +2136,12 @@ class LaCrosseTX141THBv2Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        sensor_id = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        sensor_id = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
         pkt = Packet.add_identifiers(pkt, sensor_id, LaCrosseTX141THBv2Packet.__name__)
         return pkt
 
@@ -2164,17 +2155,16 @@ class LaCrosseTXPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        sensor_id = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        sensor_id = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
         pkt = Packet.add_identifiers(pkt, sensor_id, LaCrosseTXPacket.__name__)
         return pkt
 
 
 class LaCrosseTX18Packet(Packet):
-
     # {"time" : "2020-04-21 05:21:19", "model" : "LaCrosse-WS3600", "id" : 184, "temperature_C" : 9.400}
     # {"time" : "2020-04-21 05:21:19", "model" : "LaCrosse-WS3600", "id" : 184, "humidity" : 52}
     # {"time" : "2020-04-21 05:21:20", "model" : "LaCrosse-WS3600", "id" : 184, "rain_mm" : 0.000}
@@ -2184,17 +2174,16 @@ class LaCrosseTX18Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        sensor_id = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        sensor_id = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
         pkt = Packet.add_identifiers(pkt, sensor_id, LaCrosseTX18Packet.__name__)
         return pkt
 
 
 class LaCrosseLTVR3Packet(Packet):
-
     # "time" : "2022-01-16 04:43:25", "model" : "LaCrosse-R3", "id" : 7417878, "battery_ok" : 1, "seq" : 1, "rain_mm" : 10921.750, "rain2_mm" : 10921.750, "mic" : "CRC"
 
     IDENTIFIER = "LaCrosse-R3"
@@ -2202,12 +2191,12 @@ class LaCrosseLTVR3Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        sensor_id = obj.get('id')
-        pkt['rain_total'] = Packet.get_float(obj, 'rain_mm')
-        pkt['rain2_total'] = Packet.get_float(obj, 'rain2_mm')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        sensor_id = obj.get("id")
+        pkt["rain_total"] = Packet.get_float(obj, "rain_mm")
+        pkt["rain2_total"] = Packet.get_float(obj, "rain2_mm")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
         pkt = Packet.add_identifiers(pkt, sensor_id, LaCrosseLTVR3Packet.__name__)
         return pkt
 
@@ -2222,19 +2211,20 @@ class RubicsonTempPacket(Packet):
 
     IDENTIFIER = "Rubicson Temperature Sensor"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, RubicsonTempPacket.PARSEINFO))
-        channel = pkt.pop('channel', 0)
-        code = pkt.pop('house_code', 0)
+        channel = pkt.pop("channel", 0)
+        code = pkt.pop("house_code", 0)
         sensor_id = "%s:%s" % (channel, code)
         return Packet.add_identifiers(pkt, sensor_id, RubicsonTempPacket.__name__)
 
@@ -2243,21 +2233,21 @@ class RubicsonTempPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        channel = obj.get('channel', 0)
-        code = obj.get('id', 0)
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        channel = obj.get("channel", 0)
+        code = obj.get("id", 0)
         sensor_id = "%s:%s" % (channel, code)
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
         return Packet.add_identifiers(pkt, sensor_id, RubicsonTempPacket.__name__)
 
 
 class OS(object):
     @staticmethod
     def insert_ids(pkt, pkt_type):
-        channel = pkt.pop('channel', 0)
-        code = pkt.pop('house_code', 0)
+        channel = pkt.pop("channel", 0)
+        code = pkt.pop("house_code", 0)
         sensor_id = "%s:%s" % (channel, code)
         return Packet.add_identifiers(pkt, sensor_id, pkt_type)
 
@@ -2270,22 +2260,21 @@ class OSPCR800Packet(Packet):
     # Rain Rate: 0.0 in/hr
     # Total Rain: 41.0 in
 
-    #IDENTIFIER = "PCR800"
+    # IDENTIFIER = "PCR800"
     IDENTIFIER = "Oregon-PCR800"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Rain Rate':
-            ['rain_rate', re.compile('([\d.]+) in'), lambda x: float(x)],
-        'Total Rain':
-            ['rain_total', re.compile('([\d.]+) in'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Rain Rate": ["rain_rate", re.compile(r"([\d.]+) in"), lambda x: float(x)],
+        "Total Rain": ["rain_total", re.compile(r"([\d.]+) in"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.US
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.US
         pkt.update(Packet.parse_lines(lines, OSPCR800Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSPCR800Packet.__name__)
 
@@ -2295,30 +2284,32 @@ class OSPCR800Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.US
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        pkt['rain_rate'] = Packet.get_float(obj, 'rain_rate_in_h')
-        pkt['rain_total'] = Packet.get_float(obj, 'rain_in')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.US
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["rain_rate"] = Packet.get_float(obj, "rain_rate_in_h")
+        pkt["rain_total"] = Packet.get_float(obj, "rain_in")
         return OS.insert_ids(pkt, OSPCR800Packet.__name__)
+
 
 class OSBTHR918Packet(Packet):
     IDENTIFIER = "BTHR918"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
-        'Pressure': ['pressure', re.compile('([\d.]+) mbar'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+        "Pressure": ["pressure", re.compile(r"([\d.]+) mbar"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSBTHR918Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSBTHR918Packet.__name__)
 
@@ -2328,18 +2319,19 @@ class OSBTHR918Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        if 'pressure' in obj:
-            pkt['pressure'] = Packet.get_float(obj, 'pressure_hPa')
-        elif 'pressure_hPa' in obj:
-            pkt['pressure'] = Packet.get_float(obj, 'pressure_hPa')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        if "pressure" in obj:
+            pkt["pressure"] = Packet.get_float(obj, "pressure_hPa")
+        elif "pressure_hPa" in obj:
+            pkt["pressure"] = Packet.get_float(obj, "pressure_hPa")
         return OS.insert_ids(pkt, OSBTHR918Packet.__name__)
+
 
 # apparently rtl_433 uses BHTR968 when it should be BTHR968
 class OSBTHR968Packet(Packet):
@@ -2355,18 +2347,19 @@ class OSBTHR968Packet(Packet):
 
     IDENTIFIER = "BHTR968"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
-        'Pressure': ['pressure', re.compile('([\d.]+) mbar'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+        "Pressure": ["pressure", re.compile(r"([\d.]+) mbar"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSBTHR968Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSBTHR968Packet.__name__)
 
@@ -2378,17 +2371,17 @@ class OSBTHR968Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        if 'pressure' in obj:
-            pkt['pressure'] = Packet.get_float(obj, 'pressure_hPa')
-        elif 'pressure_hPa' in obj:
-            pkt['pressure'] = Packet.get_float(obj, 'pressure_hPa')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        if "pressure" in obj:
+            pkt["pressure"] = Packet.get_float(obj, "pressure_hPa")
+        elif "pressure_hPa" in obj:
+            pkt["pressure"] = Packet.get_float(obj, "pressure_hPa")
         return OS.insert_ids(pkt, OSBTHR968Packet.__name__)
 
 
@@ -2402,18 +2395,18 @@ class OSTHGR122NPacket(Packet):
 
     IDENTIFIER = "THGR122N"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSTHGR122NPacket.PARSEINFO))
         return OS.insert_ids(pkt, OSTHGR122NPacket.__name__)
 
@@ -2422,13 +2415,13 @@ class OSTHGR122NPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
         return OS.insert_ids(pkt, OSTHGR122NPacket.__name__)
 
 
@@ -2453,20 +2446,19 @@ class OSTHGR810Packet(Packet):
 
     IDENTIFIER = "THGR810"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Celcius': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Fahrenheit': [
-            'temperature_F', re.compile('([\d.-]+) F'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Celcius": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Fahrenheit": ["temperature_F", re.compile(r"([\d.-]+) F"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSTHGR810Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSTHGR810Packet.__name__)
 
@@ -2475,13 +2467,13 @@ class OSTHGR810Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
         return OS.insert_ids(pkt, OSTHGR810Packet.__name__)
 
 
@@ -2494,17 +2486,17 @@ class OSTHR128Packet(Packet):
 
     IDENTIFIER = "OSv1 Temperature Sensor"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x : float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSTHR128Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSTHR128Packet.__name__)
 
@@ -2512,12 +2504,12 @@ class OSTHR128Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('sid')
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("sid")
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
         return OS.insert_ids(pkt, OSTHR128Packet.__name__)
 
 
@@ -2530,17 +2522,17 @@ class OSTHR228NPacket(Packet):
 
     IDENTIFIER = "Thermo Sensor THR228N"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x : float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSTHR228NPacket.PARSEINFO))
         return OS.insert_ids(pkt, OSTHR228NPacket.__name__)
 
@@ -2554,17 +2546,17 @@ class OSUV800Packet(Packet):
 
     IDENTIFIER = "UV800"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'UV Index':
-            ['uv_index', re.compile('([\d.-]+) C'), lambda x : float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "UV Index": ["uv_index", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSUV800Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSUV800Packet.__name__)
 
@@ -2573,12 +2565,12 @@ class OSUV800Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['uv_index'] = Packet.get_float(obj, 'uv')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["uv_index"] = Packet.get_float(obj, "uv")
         return OS.insert_ids(pkt, OSUV800Packet.__name__)
 
 
@@ -2590,15 +2582,16 @@ class OSUVR128Packet(Packet):
 
     IDENTIFIER = "UVR128"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'UV Index': ['uv_index', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "UV Index": ["uv_index", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSUVR128Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSUVR128Packet.__name__)
 
@@ -2608,11 +2601,11 @@ class OSUVR128Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['uv_index'] = Packet.get_float(obj, 'uv')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["uv_index"] = Packet.get_float(obj, "uv")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
         return OS.insert_ids(pkt, OSUVR128Packet.__name__)
 
 
@@ -2627,21 +2620,19 @@ class OSWGR800Packet(Packet):
 
     IDENTIFIER = "WGR800"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Gust': [
-            'wind_gust', re.compile('([\d.]+) m'), lambda x: float(x)],
-        'Average': [
-            'wind_speed', re.compile('([\d.]+) m'), lambda x: float(x)],
-        'Direction': [
-            'wind_dir', re.compile('([\d.]+) degrees'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Gust": ["wind_gust", re.compile(r"([\d.]+) m"), lambda x: float(x)],
+        "Average": ["wind_speed", re.compile(r"([\d.]+) m"), lambda x: float(x)],
+        "Direction": ["wind_dir", re.compile(r"([\d.]+) degrees"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRICWX
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRICWX
         pkt.update(Packet.parse_lines(lines, OSWGR800Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSWGR800Packet.__name__)
 
@@ -2649,14 +2640,14 @@ class OSWGR800Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        pkt['wind_gust'] = Packet.get_float(obj, 'wind_max_m_s')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_m_s')
-        pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["wind_gust"] = Packet.get_float(obj, "wind_max_m_s")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_m_s")
+        pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
         return OS.insert_ids(pkt, OSWGR800Packet.__name__)
 
 
@@ -2669,16 +2660,17 @@ class OSTHN802Packet(Packet):
 
     IDENTIFIER = "THN802"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Celcius': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Celcius": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSTHN802Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSTHN802Packet.__name__)
 
@@ -2687,12 +2679,12 @@ class OSTHN802Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
         return OS.insert_ids(pkt, OSTHN802Packet.__name__)
 
 
@@ -2707,18 +2699,19 @@ class OSBTHGN129Packet(Packet):
 
     IDENTIFIER = "BTHGN129"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Celcius': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
-        'Pressure': ['pressure', re.compile('([\d.]+) mPa'), lambda x: float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Celcius": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+        "Pressure": ["pressure", re.compile(r"([\d.]+) mPa"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, OSBTHGN129Packet.PARSEINFO))
         return OS.insert_ids(pkt, OSBTHGN129Packet.__name__)
 
@@ -2727,17 +2720,17 @@ class OSBTHGN129Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = obj.get('channel')
-        if 'battery' in obj:
-            pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        if 'battery_ok' in obj:
-            pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['pressure'] = Packet.get_float(obj, 'pressure_hPa')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = obj.get("channel")
+        if "battery" in obj:
+            pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        if "battery_ok" in obj:
+            pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["pressure"] = Packet.get_float(obj, "pressure_hPa")
         return OS.insert_ids(pkt, OSBTHGN129Packet.__name__)
 
 
@@ -2750,13 +2743,13 @@ class OSTHGR968Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = Packet.get_int(obj, 'channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = Packet.get_int(obj, "channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
         return OS.insert_ids(pkt, OSTHGR968Packet.__name__)
 
 
@@ -2769,13 +2762,13 @@ class OSRGR968Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['channel'] = Packet.get_int(obj, 'channel')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['rain_rate'] = Packet.get_float(obj, 'rain_rate')
-        pkt['total_rain'] = Packet.get_float(obj, 'total_rain')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["channel"] = Packet.get_int(obj, "channel")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["rain_rate"] = Packet.get_float(obj, "rain_rate")
+        pkt["total_rain"] = Packet.get_float(obj, "total_rain")
         return OS.insert_ids(pkt, OSRGR968Packet.__name__)
 
 
@@ -2788,13 +2781,13 @@ class ProloguePacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        sensor_id = obj.get('rid')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['channel'] = obj.get('channel')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        sensor_id = obj.get("rid")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["channel"] = obj.get("channel")
         pkt = Packet.add_identifiers(pkt, sensor_id, ProloguePacket.__name__)
         return pkt
 
@@ -2808,14 +2801,14 @@ class PrologueTHPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['model'] = obj.get('model')
-        sensor_id = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['channel'] = obj.get('channel')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["model"] = obj.get("model")
+        sensor_id = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["channel"] = obj.get("channel")
         pkt = Packet.add_identifiers(pkt, sensor_id, PrologueTHPacket.name)
         return pkt
 
@@ -2835,33 +2828,32 @@ class NexusTemperaturePacket(Packet):
 
     IDENTIFIER = "Nexus Temperature"
     PARSEINFO = {
-        'House Code': ['house_code', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-                'Channel': ['channel', None, lambda x: int(x)],
-        'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x : float(x)],
-        'Humidity':
-            ['humidity', re.compile('([\d.-]+) %'), lambda x : float(x)]}
+        "House Code": ["house_code", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.-]+) %"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, NexusTemperaturePacket.PARSEINFO))
         return OS.insert_ids(pkt, NexusTemperaturePacket.__name__)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['house_code'] = obj.get('id')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['channel'] = obj.get('channel')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        if 'humidity' in obj:
-            pkt['humidity'] = Packet.get_float(obj, 'humidity')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["house_code"] = obj.get("id")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["channel"] = obj.get("channel")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        if "humidity" in obj:
+            pkt["humidity"] = Packet.get_float(obj, "humidity")
         return OS.insert_ids(pkt, NexusTemperaturePacket.__name__)
 
 
@@ -2888,42 +2880,45 @@ class Bresser5in1Packet(Packet):
     # "battery_ok" : 1, "temperature_C" : 17.000, "humidity" : 92,
     # "wind_max_m_s" : 4.000, "wind_avg_m_s" : 2.400, "wind_dir_deg" : 67.500,
     # "rain_mm" : 0.800, "mic" : "CHECKSUM"}
-    
+
     IDENTIFIER = "Bresser-5in1"
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        pkt['uv'] = Packet.get_float(obj, 'uv')
-        pkt['uv_index'] = Packet.get_float(obj, 'uvi')
-        pkt['battery'] = 0 if obj.get('battery_ok') == 1 else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        pkt["uv"] = Packet.get_float(obj, "uv")
+        pkt["uv_index"] = Packet.get_float(obj, "uvi")
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
         # deal with different labels from rtl_433
-        for dst, src in [('wind_speed', 'wind_speed_ms'),
-                         ('wind_speed', 'wind_speed'),
-                         ('wind_speed', 'wind_avg_m_s'),
-                         ('gust_speed', 'gust_speed_ms'),
-                         ('gust_speed', 'gust_speed'),
-                         ('rain_total', 'rainfall_mm'),
-                         ('rain_total', 'rain_mm'),
-                         ('wind_gust', 'gust_speed_ms'),
-                         ('wind_gust', 'wind_gust'),
-                         ('wind_gust', 'gust_speed'),
-                         ('wind_gust', 'wind_max_m_s')]:
+        for dst, src in [
+            ("wind_speed", "wind_speed_ms"),
+            ("wind_speed", "wind_speed"),
+            ("wind_speed", "wind_avg_m_s"),
+            ("gust_speed", "gust_speed_ms"),
+            ("gust_speed", "gust_speed"),
+            ("rain_total", "rainfall_mm"),
+            ("rain_total", "rain_mm"),
+            ("wind_gust", "gust_speed_ms"),
+            ("wind_gust", "wind_gust"),
+            ("wind_gust", "gust_speed"),
+            ("wind_gust", "wind_max_m_s"),
+        ]:
             if src in obj:
                 pkt[dst] = Packet.get_float(obj, src)
         return Bresser5in1Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         pkt = Packet.add_identifiers(pkt, station_id, Bresser5in1Packet.__name__)
         return pkt
+
 
 class Bresser6in1Packet(Packet):
     #  'time' => '2018-12-15 16:04:04',
@@ -2949,41 +2944,41 @@ class Bresser6in1Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        if 'temperature_C' in obj:
-            pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        if 'humidity' in obj:
-            pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        if 'wind_dir_deg' in obj:
-            pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        if 'wind_max_m_s' in obj:
-            pkt['wind_gust'] = Packet.get_float(obj, 'wind_max_m_s')
-        if 'wind_avg_m_s' in obj:
-            pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_m_s')
-        if 'uv' in obj:
-            pkt['uv'] = Packet.get_float(obj, 'uv')
-        if 'uv_index' in obj:
-            pkt['uv_index'] = Packet.get_float(obj, 'uvi')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        if "temperature_C" in obj:
+            pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        if "humidity" in obj:
+            pkt["humidity"] = Packet.get_float(obj, "humidity")
+        if "wind_dir_deg" in obj:
+            pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        if "wind_max_m_s" in obj:
+            pkt["wind_gust"] = Packet.get_float(obj, "wind_max_m_s")
+        if "wind_avg_m_s" in obj:
+            pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_m_s")
+        if "uv" in obj:
+            pkt["uv"] = Packet.get_float(obj, "uv")
+        if "uv_index" in obj:
+            pkt["uv_index"] = Packet.get_float(obj, "uvi")
         # deal with different labels from rtl_433
-        for dst, src in [('wind_speed', 'wind_speed_ms'),
-                     ('gust_speed', 'gust_speed_ms'),
-                     ('rain_total', 'rainfall_mm'),
-                     ('wind_speed', 'wind_speed'),
-                     ('gust_speed', 'gust_speed'),
-                     ('rain_total', 'rain_mm')]:
-           if src in obj:
-               pkt[dst] = Packet.get_float(obj, src)
+        for dst, src in [
+            ("wind_speed", "wind_speed_ms"),
+            ("gust_speed", "gust_speed_ms"),
+            ("rain_total", "rainfall_mm"),
+            ("wind_speed", "wind_speed"),
+            ("gust_speed", "gust_speed"),
+            ("rain_total", "rain_mm"),
+        ]:
+            if src in obj:
+                pkt[dst] = Packet.get_float(obj, src)
         return Bresser6in1Packet.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
+        station_id = pkt.pop("station_id", "0000")
         pkt = Packet.add_identifiers(pkt, station_id, Bresser6in1Packet.__name__)
         return pkt
-
-
 
 
 class BresserProRainGaugePacket(Packet):
@@ -2996,18 +2991,20 @@ class BresserProRainGaugePacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRICWX
-        pkt['station_id'] = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['rain_total'] = Packet.get_float(obj, 'rain_mm')
-        pkt['battery'] = 1 if Packet.get_int(obj, 'battery_ok') == 0 else 0
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRICWX
+        pkt["station_id"] = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["rain_total"] = Packet.get_float(obj, "rain_mm")
+        pkt["battery"] = 1 if Packet.get_int(obj, "battery_ok") == 0 else 0
         return BresserProRainGaugePacket.insert_ids(pkt)
 
     @staticmethod
     def insert_ids(pkt):
-        station_id = pkt.pop('station_id', '0000')
-        pkt = Packet.add_identifiers(pkt, station_id, BresserProRainGaugePacket.__name__)
+        station_id = pkt.pop("station_id", "0000")
+        pkt = Packet.add_identifiers(
+            pkt, station_id, BresserProRainGaugePacket.__name__
+        )
         return pkt
 
 
@@ -3019,14 +3016,14 @@ class SpringfieldTMPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        sensor_id = obj.get('sid')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['moisture'] = Packet.get_float(obj, 'moisture')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
-        pkt['channel'] = obj.get('channel')
-        pkt['transmit'] = obj.get('transmit')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        sensor_id = obj.get("sid")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["moisture"] = Packet.get_float(obj, "moisture")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
+        pkt["channel"] = obj.get("channel")
+        pkt["transmit"] = obj.get("transmit")
         pkt = Packet.add_identifiers(pkt, sensor_id, SpringfieldTMPacket.__name__)
         return pkt
 
@@ -3038,35 +3035,35 @@ class TFATwinPlus303049Packet(Packet):
     # Temperature: 8.40 C
     # Humidity: 91 %
 
-    # {"time" : "2019-09-25 17:15:12", "model" : "TFA-Twin-Plus-30.3049", "id" : 13, "channel" : 1, "battery" : "OK", "temperature_C" : 8.400, "humidity" : 91, "mic" : "CHECK  SUM"} 
+    # {"time" : "2019-09-25 17:15:12", "model" : "TFA-Twin-Plus-30.3049", "id" : 13, "channel" : 1, "battery" : "OK", "temperature_C" : 8.400, "humidity" : 91, "mic" : "CHECK  SUM"}
 
     IDENTIFIER = "TFA-Twin-Plus-30.3049"
     PARSEINFO = {
-        'Rolling Code': ['rolling_code', None, lambda x: int(x)],
-        'Channel': ['channel', None, lambda x: int(x)],
-        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+        "Rolling Code": ["rolling_code", None, lambda x: int(x)],
+        "Channel": ["channel", None, lambda x: int(x)],
+        "Battery": ["battery", None, lambda x: 0 if x == "OK" else 1],
+        "Temperature": ["temperature", re.compile(r"([\d.-]+) C"), lambda x: float(x)],
+        "Humidity": ["humidity", re.compile(r"([\d.]+) %"), lambda x: float(x)],
+    }
 
     @staticmethod
     def parse_text(ts, payload, lines):
         pkt = dict()
-        pkt['dateTime'] = ts
-        pkt['usUnits'] = weewx.METRIC
+        pkt["dateTime"] = ts
+        pkt["usUnits"] = weewx.METRIC
         pkt.update(Packet.parse_lines(lines, TFATwinPlus303049Packet.PARSEINFO))
         return Hideki.insert_ids(pkt, TFATwinPlus303049Packet.__name__)
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['rolling_code'] = obj.get('rc')
-        pkt['channel'] = obj.get('channel')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["rolling_code"] = obj.get("rc")
+        pkt["channel"] = obj.get("channel")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
         return Hideki.insert_ids(pkt, TFATwinPlus303049Packet.__name__)
 
 
@@ -3082,34 +3079,34 @@ class TSFT002Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['depth'] = Packet.get_float(obj, 'depth_cm')
-        pkt['transmit'] = Packet.get_float(obj, 'transmit_s')
-        pkt['flags'] = Packet.get_int(obj, 'transmit_s')
-        sensor_id = pkt.pop('id', '0000')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["depth"] = Packet.get_float(obj, "depth_cm")
+        pkt["transmit"] = Packet.get_float(obj, "transmit_s")
+        pkt["flags"] = Packet.get_int(obj, "transmit_s")
+        sensor_id = pkt.pop("id", "0000")
         pkt = Packet.add_identifiers(pkt, sensor_id, TSFT002Packet.__name__)
         return pkt
 
 
 class WS2032Packet(Packet):
-    #{"time" : "2020-10-19 22:41:24", "model" : "WS2032", "id" : 11768, "temperature_C" : 3.800, "humidity" : 48, "wind_dir_deg" : 315.000, "wind_avg_km_h" : 7.740, "wind_max_km_h" : 15.480, "maybe_flags" : 0, "maybe_rain" : 256, "mic" : "CRC"}
-    
+    # {"time" : "2020-10-19 22:41:24", "model" : "WS2032", "id" : 11768, "temperature_C" : 3.800, "humidity" : 48, "wind_dir_deg" : 315.000, "wind_avg_km_h" : 7.740, "wind_max_km_h" : 15.480, "maybe_flags" : 0, "maybe_rain" : 256, "mic" : "CRC"}
+
     IDENTIFIER = "WS2032"
 
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        sensor_id = obj.get('id')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
-        pkt['humidity'] = Packet.get_float(obj, 'humidity')
-        pkt['wind_gust'] = Packet.get_float(obj, 'wind_max_km_h')
-        pkt['wind_speed'] = Packet.get_float(obj, 'wind_avg_km_h')
-        pkt['wind_dir'] = Packet.get_float(obj, 'wind_dir_deg')
-        pkt['total_rain'] = Packet.get_float(obj, 'maybe_rain')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        sensor_id = obj.get("id")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
+        pkt["humidity"] = Packet.get_float(obj, "humidity")
+        pkt["wind_gust"] = Packet.get_float(obj, "wind_max_km_h")
+        pkt["wind_speed"] = Packet.get_float(obj, "wind_avg_km_h")
+        pkt["wind_dir"] = Packet.get_float(obj, "wind_dir_deg")
+        pkt["total_rain"] = Packet.get_float(obj, "maybe_rain")
         pkt = Packet.add_identifiers(pkt, sensor_id, WS2032Packet.__name__)
         return pkt
 
@@ -3123,25 +3120,27 @@ class WT0124Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
-        pkt['usUnits'] = weewx.METRIC
-        sensor_id = obj.get('rid')
-        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
+        pkt["dateTime"] = Packet.parse_time(obj.get("time"))
+        pkt["usUnits"] = weewx.METRIC
+        sensor_id = obj.get("rid")
+        pkt["temperature"] = Packet.get_float(obj, "temperature_C")
         pkt = Packet.add_identifiers(pkt, sensor_id, WT0124Packet.__name__)
         return pkt
 
-class PacketFactory(object):
 
+class PacketFactory(object):
     # known packets will be lazy-loaded by introspecting at first request
     KNOWN_PACKETS = []
 
     @staticmethod
     def known_packets():
         if not PacketFactory.KNOWN_PACKETS:
-            import sys, inspect
+            import sys
+            import inspect
+
             objs = inspect.getmembers(sys.modules[__name__], inspect.isclass)
             for name, obj in objs:
-                if hasattr(obj, 'IDENTIFIER'):
+                if hasattr(obj, "IDENTIFIER"):
                     PacketFactory.KNOWN_PACKETS.append(obj)
         return PacketFactory.KNOWN_PACKETS
 
@@ -3150,10 +3149,10 @@ class PacketFactory(object):
         # return a list of packets from the specified lines
         while lines:
             pkt = None
-            if lines[0].startswith('{'):
+            if lines[0].startswith("{"):
                 pkt = PacketFactory.parse_json(lines)
                 if pkt is None:
-                    logdbg("punt unrecognized line '%s'" % lines[0])
+                    log_dbg("punt unrecognized line '%s'" % lines[0])
                 lines.pop(0)
             else:
                 pkt = PacketFactory.parse_text(lines)
@@ -3164,33 +3163,31 @@ class PacketFactory(object):
     def parse_json(lines):
         try:
             obj = json.loads(lines[0])
-            if 'model' in obj:
+            if "model" in obj:
                 for parser in PacketFactory.known_packets():
-                    if obj['model'].find(parser.IDENTIFIER) >= 0:
+                    if obj["model"].find(parser.IDENTIFIER) >= 0:
                         return parser.parse_json(obj)
-                logdbg("parse_json: unknown model %s" % obj['model'])
+                log_dbg("parse_json: unknown model %s" % obj["model"])
         except ValueError as e:
-            logdbg("parse_json failed: %s" % e)
+            log_dbg("parse_json failed: %s" % e)
         return None
 
     @staticmethod
     def parse_text(lines):
         ts, payload = PacketFactory.parse_firstline(lines[0])
         if ts and payload:
-            logdbg("parse_text: ts=%s payload=%s" % (ts, payload))
+            log_dbg("parse_text: ts=%s payload=%s" % (ts, payload))
             for parser in PacketFactory.known_packets():
                 if payload.find(parser.IDENTIFIER) >= 0:
                     pkt = parser.parse_text(ts, payload, lines)
-                    logdbg("pkt=%s" % pkt)
+                    log_dbg("pkt=%s" % pkt)
                     return pkt
-            logdbg("parse_text: unknown format: ts=%s payload=%s" %
-                   (ts, payload))
-        logdbg("parse_text failed: ts=%s payload=%s line=%s" %
-               (ts, payload, lines[0]))
+            log_dbg("parse_text: unknown format: ts=%s payload=%s" % (ts, payload))
+        log_dbg("parse_text failed: ts=%s payload=%s line=%s" % (ts, payload, lines[0]))
         lines.pop(0)
         return None
 
-    TS_PATTERN = re.compile('(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)[\s]+:*(.*)')
+    TS_PATTERN = re.compile(r"(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)\s+:*(.*)")
 
     @staticmethod
     def parse_firstline(line):
@@ -3209,50 +3206,50 @@ class PacketFactory(object):
 class SDRConfigurationEditor(weewx.drivers.AbstractConfEditor):
     @property
     def default_stanza(self):
-        return """
-[SDR]
-    # This section is for the software-defined radio driver.
-
-    # The driver to use
-    driver = user.sdr
-
-    # How to invoke the rtl_433 command
-#    cmd = %s
-
-    # The sensor map associates observations with database fields.  Each map
-    # element consists of a tuple on the left and a database field name on the
-    # right.  The tuple on the left consists of:
-    #
-    #   <observation_name>.<sensor_identifier>.<packet_type>
-    #
-    # The sensor_identifier is hardware-specific.  For example, Acurite sensors
-    # have a 4 character hexadecimal identifier, whereas fine offset sensor
-    # clusters have a 4 digit identifier.
-    #
-    # glob-style pattern matching is supported for the sensor_identifier.
-    #
-# map data from any fine offset sensor cluster to database field names
-#    [[sensor_map]]
-#        windGust = wind_gust.*.FOWH1080Packet
-#        outBatteryStatus = battery.*.FOWH1080Packet
-#        rain_total = rain_total.*.FOWH1080Packet
-#        windSpeed = wind_speed.*.FOWH1080Packet
-#        windDir = wind_dir.*.FOWH1080Packet
-#        outHumidity = humidity.*.FOWH1080Packet
-#        outTemp = temperature.*.FOWH1080Packet
-
-""" % DEFAULT_CMD
+        return (
+            """
+        [SDR]
+            # This section is for the software-defined radio driver.
+        
+            # The driver to use
+            driver = user.sdr
+        
+            # How to invoke the rtl_433 command
+        #    cmd = %s
+        
+            # The sensor map associates observations with database fields.  Each map
+            # element consists of a tuple on the left and a database field name on the
+            # right.  The tuple on the left consists of:
+            #
+            #   <observation_name>.<sensor_identifier>.<packet_type>
+            #
+            # The sensor_identifier is hardware-specific.  For example, Acurite sensors
+            # have a 4 character hexadecimal identifier, whereas fine offset sensor
+            # clusters have a 4 digit identifier.
+            #
+            # glob-style pattern matching is supported for the sensor_identifier.
+            #
+        # map data from any fine offset sensor cluster to database field names
+        #    [[sensor_map]]
+        #        windGust = wind_gust.*.FOWH1080Packet
+        #        outBatteryStatus = battery.*.FOWH1080Packet
+        #        rain_total = rain_total.*.FOWH1080Packet
+        #        windSpeed = wind_speed.*.FOWH1080Packet
+        #        windDir = wind_dir.*.FOWH1080Packet
+        #        outHumidity = humidity.*.FOWH1080Packet
+        #        outTemp = temperature.*.FOWH1080Packet
+        
+        """
+            % DEFAULT_CMD
+        )
 
 
 class SDRDriver(weewx.drivers.AbstractDevice):
-
     # map the counter total to the counter delta.  for example, the pair
     #   rain:rain_total
     # will result in a delta called 'rain' from the cumulative 'rain_total'.
     # these are applied to mapped packets.
-    DEFAULT_DELTAS = {
-        'rain': 'rain_total',
-        'strikes': 'strikes_total'}
+    DEFAULT_DELTAS = {"rain": "rain_total", "strikes": "strikes_total"}
 
     # what is the difference in timestamp values at which we consider two
     # data samples to be different?  some hardware emits duplicate data, and
@@ -3265,22 +3262,24 @@ class SDRDriver(weewx.drivers.AbstractDevice):
     TIMESTAMP_MATCH_THRESHHOLD = 1
 
     def __init__(self, **stn_dict):
-        loginf('driver version is %s' % DRIVER_VERSION)
-        self._model = stn_dict.get('model', 'SDR')
-        loginf('model is %s' % self._model)
-        self._log_lines = tobool(stn_dict.get('log_lines', False))
-        self._log_unknown = tobool(stn_dict.get('log_unknown_sensors', False))
-        self._log_unmapped = tobool(stn_dict.get('log_unmapped_sensors', False))
-        self._sensor_map = stn_dict.get('sensor_map', {})
-        loginf('sensor map is %s' % self._sensor_map)
-        self._deltas = stn_dict.get('deltas', SDRDriver.DEFAULT_DELTAS)
-        loginf('deltas is %s' % self._deltas)
-        self._ts_delta = stn_dict.get('timestamp_match_threshhold', SDRDriver.TIMESTAMP_MATCH_THRESHHOLD)
+        loginf("driver version is %s" % DRIVER_VERSION)
+        self._model = stn_dict.get("model", "SDR")
+        loginf("model is %s" % self._model)
+        self._log_lines = tobool(stn_dict.get("log_lines", False))
+        self._log_unknown = tobool(stn_dict.get("log_unknown_sensors", False))
+        self._log_unmapped = tobool(stn_dict.get("log_unmapped_sensors", False))
+        self._sensor_map = stn_dict.get("sensor_map", {})
+        loginf("sensor map is %s" % self._sensor_map)
+        self._deltas = stn_dict.get("deltas", SDRDriver.DEFAULT_DELTAS)
+        loginf("deltas is %s" % self._deltas)
+        self._ts_delta = stn_dict.get(
+            "timestamp_match_threshhold", SDRDriver.TIMESTAMP_MATCH_THRESHHOLD
+        )
         self._counter_values = dict()
-        cmd = stn_dict.get('cmd', DEFAULT_CMD)
-        path = stn_dict.get('path', None)
-        ld_library_path = stn_dict.get('ld_library_path', None)
-        self._last_pkt = None # avoid duplicate sequential packets
+        cmd = stn_dict.get("cmd", DEFAULT_CMD)
+        path = stn_dict.get("path", None)
+        ld_library_path = stn_dict.get("ld_library_path", None)
+        self._last_pkt = None  # avoid duplicate sequential packets
         self._mgr = ProcManager()
         self._mgr.startup(cmd, path, ld_library_path)
 
@@ -3301,12 +3300,12 @@ class SDRDriver(weewx.drivers.AbstractDevice):
                         pkt = self.map_to_fields(packet, self._sensor_map)
                         if pkt:
                             if not self._packets_match(pkt, self._last_pkt):
-                                logdbg("packet=%s" % pkt)
+                                log_dbg("packet=%s" % pkt)
                                 self._last_pkt = pkt
                                 self._calculate_deltas(pkt)
                                 yield pkt
                             else:
-                                logdbg("ignoring duplicate packet %s" % pkt)
+                                log_dbg("ignoring duplicate packet %s" % pkt)
                         elif self._log_unmapped:
                             loginf("unmapped: %s" % packet)
                     elif self._log_unknown:
@@ -3328,8 +3327,8 @@ class SDRDriver(weewx.drivers.AbstractDevice):
             return False
         a = copy.deepcopy(pkt1)
         b = copy.deepcopy(pkt2)
-        a_ts = a.pop('dateTime')
-        b_ts = b.pop('dateTime')
+        a_ts = a.pop("dateTime")
+        b_ts = b.pop("dateTime")
         if a != b:
             return False
         if abs(a_ts - b_ts) > self._ts_delta:
@@ -3341,7 +3340,8 @@ class SDRDriver(weewx.drivers.AbstractDevice):
             label = self._deltas[k]
             if label in pkt:
                 pkt[k] = self._calculate_delta(
-                    label, pkt[label], self._counter_values.get(label))
+                    label, pkt[label], self._counter_values.get(label)
+                )
                 self._counter_values[label] = pkt[label]
 
     @staticmethod
@@ -3351,8 +3351,10 @@ class SDRDriver(weewx.drivers.AbstractDevice):
             if newtotal >= oldtotal:
                 delta = newtotal - oldtotal
             else:
-                loginf("%s decrement ignored:"
-                       " new: %s old: %s" % (label, newtotal, oldtotal))
+                loginf(
+                    "%s decrement ignored:"
+                    " new: %s old: %s" % (label, newtotal, oldtotal)
+                )
         return delta
 
     @staticmethod
@@ -3367,7 +3369,7 @@ class SDRDriver(weewx.drivers.AbstractDevice):
             if label:
                 packet[n] = pkt.get(label)
         if packet:
-            for k in ['dateTime', 'usUnits']:
+            for k in ["dateTime", "usUnits"]:
                 packet[k] = pkt[k]
         return packet
 
@@ -3380,14 +3382,16 @@ class SDRDriver(weewx.drivers.AbstractDevice):
         if pattern in keylist:
             return pattern
         match = None
-        pparts = pattern.split('.')
+        pparts = pattern.split(".")
         if len(pparts) == 3:
             for k in keylist:
-                kparts = k.split('.')
-                if (len(kparts) == 3 and
-                    SDRDriver._part_match(pparts[0], kparts[0]) and
-                    SDRDriver._part_match(pparts[1], kparts[1]) and
-                    SDRDriver._part_match(pparts[2], kparts[2])):
+                kparts = k.split(".")
+                if (
+                    len(kparts) == 3
+                    and SDRDriver._part_match(pparts[0], kparts[0])
+                    and SDRDriver._part_match(pparts[1], kparts[1])
+                    and SDRDriver._part_match(pparts[2], kparts[2])
+                ):
                     match = k
                     break
                 elif pparts[0] == k:
@@ -3419,25 +3423,38 @@ Hide:
   This is a comma-separate list of the types of data that should not be
   displayed.  Default is to show everything."""
 
-    syslog.openlog('sdr', syslog.LOG_PID | syslog.LOG_CONS)
+    syslog.openlog("sdr", syslog.LOG_PID | syslog.LOG_CONS)
     syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_INFO))
     parser = optparse.OptionParser(usage=usage)
-    parser.add_option('--version', dest='version', action='store_true',
-                      help='display driver version')
-    parser.add_option('--debug', dest='debug', action='store_true',
-                      help='display diagnostic information while running')
-    parser.add_option('--cmd', dest='cmd', default=DEFAULT_CMD,
-                      help='rtl command with options')
-    parser.add_option('--path', dest='path',
-                      help='value for PATH')
-    parser.add_option('--ld_library_path', dest='ld_library_path',
-                      help='value for LD_LIBRARY_PATH')
-    parser.add_option('--config',
-                      help='configuration file with sensor map')
-    parser.add_option('--hide', dest='hidden', default='empty',
-                      help='output to be hidden as comma-delimited list: out, parsed, unparsed, mapped, unmapped, empty')
-    parser.add_option('--action', dest='action', default='show-packets',
-                      help='actions include show-packets, show-detected, list-supported')
+    parser.add_option(
+        "--version", dest="version", action="store_true", help="display driver version"
+    )
+    parser.add_option(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        help="display diagnostic information while running",
+    )
+    parser.add_option(
+        "--cmd", dest="cmd", default=DEFAULT_CMD, help="rtl command with options"
+    )
+    parser.add_option("--path", dest="path", help="value for PATH")
+    parser.add_option(
+        "--ld_library_path", dest="ld_library_path", help="value for LD_LIBRARY_PATH"
+    )
+    parser.add_option("--config", help="configuration file with sensor map")
+    parser.add_option(
+        "--hide",
+        dest="hidden",
+        default="empty",
+        help="output to be hidden as comma-delimited list: out, parsed, unparsed, mapped, unmapped, empty",
+    )
+    parser.add_option(
+        "--action",
+        dest="action",
+        default="show-packets",
+        help="actions include show-packets, show-detected, list-supported",
+    )
 
     (options, args) = parser.parse_args()
 
@@ -3451,62 +3468,65 @@ Hide:
     sensor_map = dict()
     if options.config:
         import weecfg
-        config_path, config_dict = weecfg.read_config(options.config)
-        sensor_map = config_dict.get('SDR', {}).get('sensor_map', {})
 
-    if options.action == 'list-supported':
+        config_path, config_dict = weecfg.read_config(options.config)
+        sensor_map = config_dict.get("SDR", {}).get("sensor_map", {})
+
+    if options.action == "list-supported":
         pkt_names = PacketFactory.known_packets()
         print("%s known packet types" % len(pkt_names))
         for pt in pkt_names:
             print("%s '%s'" % (pt.__name__, pt.IDENTIFIER))
-    elif options.action == 'show-detected':
+    elif options.action == "show-detected":
         # display identifiers for detected sensors
         mgr = ProcManager()
-        mgr.startup(options.cmd, path=options.path,
-                    ld_library_path=options.ld_library_path)
+        mgr.startup(
+            options.cmd, path=options.path, ld_library_path=options.ld_library_path
+        )
         detected = dict()
         for lines in mgr.get_stdout():
             # print("out: %s" % lines)
             for p in PacketFactory.create(lines):
                 if p:
-                    del p['usUnits']
-                    del p['dateTime']
+                    del p["usUnits"]
+                    del p["dateTime"]
                     keys = p.keys()
-                    label = re.sub(r'^[^\.]+', '', keys[0])
+                    label = re.sub(r"^[^.]+", "", keys[0])
                     if label not in detected:
                         detected[label] = 0
                     detected[label] += 1
                 print(detected)
     else:
         # display output and parsed/unparsed packets
-        hidden = [x.strip() for x in options.hidden.split(',')]
+        hidden = [x.strip() for x in options.hidden.split(",")]
         mgr = ProcManager()
-        mgr.startup(options.cmd, path=options.path,
-                    ld_library_path=options.ld_library_path)
+        mgr.startup(
+            options.cmd, path=options.path, ld_library_path=options.ld_library_path
+        )
         for lines in mgr.get_stdout():
-            if 'out' not in hidden and (
-                    'empty' not in hidden or len(lines)):
+            if "out" not in hidden and ("empty" not in hidden or len(lines)):
                 print("out: %s" % lines)
             for p in PacketFactory.create(lines):
                 if p:
-                    if 'parsed' not in hidden:
-                        print('parsed: %s' % p)
+                    if "parsed" not in hidden:
+                        print("parsed: %s" % p)
                     if sensor_map:
                         m = SDRDriver.map_to_fields(p, sensor_map)
                         if m:
-                            if 'mapped' not in hidden:
-                                print('mapped: %s' % m)
+                            if "mapped" not in hidden:
+                                print("mapped: %s" % m)
                         else:
-                            if 'unmapped' not in hidden:
-                                print('unmapped: %s' % p)
+                            if "unmapped" not in hidden:
+                                print("unmapped: %s" % p)
                 else:
-                    if 'unparsed' not in hidden and (
-                            'empty' not in hidden or len(lines)):
+                    if "unparsed" not in hidden and (
+                        "empty" not in hidden or len(lines)
+                    ):
                         print("unparsed: %s" % lines)
         for line in mgr.get_stderr():
             line = line.rstrip()
             print("err: %s" % line)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
