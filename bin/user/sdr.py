@@ -1101,11 +1101,17 @@ class AmbientF007THPacket(Packet):
         pkt = dict()
         pkt["dateTime"] = Packet.parse_time(obj.get("time"))
         pkt["usUnits"] = weewx.US
-        house_code = obj.get("device", 0)
+        house_code = obj.get("id", 0)
         channel = obj.get("channel")
         pkt["temperature"] = Packet.get_float(obj, "temperature_F")
         pkt["humidity"] = Packet.get_float(obj, "humidity")
         sensor_id = "%s:%s" % (channel, house_code)
+        pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
+        pkt["mod"] = obj.get("mod")
+        pkt["freq"] = Packet.get_float(obj, "freq")
+        pkt["rssi"] = Packet.get_float(obj, "rssi")
+        pkt["snr"] = Packet.get_float(obj, "snr")
+        pkt["noise"] = Packet.get_float(obj, "noise")
         pkt = Packet.add_identifiers(pkt, sensor_id, AmbientF007THPacket.__name__)
         return pkt
 
@@ -3225,38 +3231,38 @@ class SDRConfigurationEditor(weewx.drivers.AbstractConfEditor):
     def default_stanza(self):
         return (
             """
-            [SDR]
-                # This section is for the software-defined radio driver.
-            
-                # The driver to use
-                driver = user.sdr
-            
-                # How to invoke the rtl_433 command
-            #    cmd = %s
-            
-                # The sensor map associates observations with database fields.  Each map
-                # element consists of a tuple on the left and a database field name on the
-                # right.  The tuple on the left consists of:
-                #
-                #   <observation_name>.<sensor_identifier>.<packet_type>
-                #
-                # The sensor_identifier is hardware-specific.  For example, Acurite sensors
-                # have a 4 character hexadecimal identifier, whereas fine offset sensor
-                # clusters have a 4 digit identifier.
-                #
-                # glob-style pattern matching is supported for the sensor_identifier.
-                #
-            # map data from any fine offset sensor cluster to database field names
-            #    [[sensor_map]]
-            #        windGust = wind_gust.*.FOWH1080Packet
-            #        outBatteryStatus = battery.*.FOWH1080Packet
-            #        rain_total = rain_total.*.FOWH1080Packet
-            #        windSpeed = wind_speed.*.FOWH1080Packet
-            #        windDir = wind_dir.*.FOWH1080Packet
-            #        outHumidity = humidity.*.FOWH1080Packet
-            #        outTemp = temperature.*.FOWH1080Packet
-            
-            """
+                [SDR]
+                    # This section is for the software-defined radio driver.
+                
+                    # The driver to use
+                    driver = user.sdr
+                
+                    # How to invoke the rtl_433 command
+                #    cmd = %s
+                
+                    # The sensor map associates observations with database fields.  Each map
+                    # element consists of a tuple on the left and a database field name on the
+                    # right.  The tuple on the left consists of:
+                    #
+                    #   <observation_name>.<sensor_identifier>.<packet_type>
+                    #
+                    # The sensor_identifier is hardware-specific.  For example, Acurite sensors
+                    # have a 4 character hexadecimal identifier, whereas fine offset sensor
+                    # clusters have a 4 digit identifier.
+                    #
+                    # glob-style pattern matching is supported for the sensor_identifier.
+                    #
+                # map data from any fine offset sensor cluster to database field names
+                #    [[sensor_map]]
+                #        windGust = wind_gust.*.FOWH1080Packet
+                #        outBatteryStatus = battery.*.FOWH1080Packet
+                #        rain_total = rain_total.*.FOWH1080Packet
+                #        windSpeed = wind_speed.*.FOWH1080Packet
+                #        windDir = wind_dir.*.FOWH1080Packet
+                #        outHumidity = humidity.*.FOWH1080Packet
+                #        outTemp = temperature.*.FOWH1080Packet
+                
+                """
             % DEFAULT_CMD
         )
 
