@@ -79,6 +79,7 @@ in the JSON data, for example 'wind_speed_mph' instead of just 'wind_speed'.
 
 from __future__ import with_statement
 
+import logging
 from calendar import timegm
 
 import queue
@@ -95,39 +96,6 @@ import json
 import weewx.drivers
 import weewx.units
 from weeutil.weeutil import tobool
-
-try:
-    # New-style weewx logging
-    import weeutil.logger
-    import logging
-
-    log = logging.getLogger(__name__)
-
-    def logdbg(msg):
-        log.debug(msg)
-
-    def loginf(msg):
-        log.info(msg)
-
-    def logerr(msg):
-        log.error(msg)
-
-except ImportError:
-    # Old-style weewx logging
-    import syslog
-
-    def logmsg(level, msg):
-        syslog.syslog(level, "sdr: %s: %s" % (threading.currentThread().getName(), msg))
-
-    def log_dbg(msg):
-        logmsg(syslog.LOG_DEBUG, msg)
-
-    def loginf(msg):
-        logmsg(syslog.LOG_INFO, msg)
-
-    def logerr(msg):
-        logmsg(syslog.LOG_ERR, msg)
-
 
 DRIVER_NAME = "SDR"
 DRIVER_VERSION = "0.87"
@@ -186,7 +154,7 @@ class AsyncReader(threading.Thread):
         self.name = label
 
     def run(self):
-        log_dbg("start async reader for %s" % self.name)
+        logging.debug("start async reader for %s" % self.name)
         self._running = True
         for line in iter(self._fd.readline, ""):
             if line:
@@ -211,7 +179,7 @@ class ProcManager(object):
 
     def startup(self, cmd, path=None, ld_library_path=None):
         self._cmd = cmd
-        loginf("startup process '%s'" % self._cmd)
+        logging.info("startup process '%s'" % self._cmd)
         env = os.environ.copy()
         if path:
             env["PATH"] = path + ":" + env["PATH"]
@@ -233,28 +201,28 @@ class ProcManager(object):
             raise weewx.WeeWxIOError("failed to start process '%s': %s" % (cmd, e))
 
     def shutdown(self):
-        loginf("shutdown process %s" % self._cmd)
+        logging.info("shutdown process %s" % self._cmd)
         self._process.kill()
-        log_dbg("close stdout")
+        logging.debug("close stdout")
         self._process.stdout.close()
-        log_dbg("close stderr")
+        logging.debug("close stderr")
         self._process.stderr.close()
-        log_dbg("shutdown %s" % self.stdout_reader.getName())
+        logging.debug("shutdown %s" % self.stdout_reader.getName())
         self.stdout_reader.stop_running()
         self.stdout_reader.join(0.5)
-        log_dbg("shutdown %s" % self.stderr_reader.getName())
+        logging.debug("shutdown %s" % self.stderr_reader.getName())
         self.stderr_reader.stop_running()
         self.stderr_reader.join(0.5)
         if self._process.poll() is None:
-            logerr("process did not respond to kill, shutting down anyway")
+            logging.error("process did not respond to kill, shutting down anyway")
         self._process = None
         if self.stdout_reader.is_alive():
-            loginf("timed out waiting for %s" % self.stdout_reader.getName())
+            logging.info("timed out waiting for %s" % self.stdout_reader.getName())
         self.stdout_reader = None
         if self.stderr_reader.is_alive():
-            loginf("timed out waiting for %s" % self.stderr_reader.getName())
+            logging.info("timed out waiting for %s" % self.stderr_reader.getName())
         self.stderr_reader = None
-        loginf("shutdown complete")
+        logging.info("shutdown complete")
 
     def running(self):
         return self._process.poll() is None
@@ -307,7 +275,7 @@ class Packet:
                 utc = time.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
                 ts = timegm(utc)
         except Exception as e:
-            logerr("parse timestamp failed for '%s': %s" % (line, e))
+            logging.error("parse timestamp failed for '%s': %s" % (line, e))
         return ts
 
     @staticmethod
@@ -348,18 +316,20 @@ class Packet:
                             if m:
                                 value = m.group(1)
                             else:
-                                log_dbg("regex failed for %s:'%s'" % (name, value))
+                                logging.debug(
+                                    "regex failed for %s:'%s'" % (name, value)
+                                )
                         if parseinfo[name][2]:
                             value = parseinfo[name][2](value)
                         if parseinfo[name][0]:
                             name = parseinfo[name][0]
                         packet[name] = value
                     else:
-                        log_dbg("ignoring %s:%s" % (name, value))
+                        logging.debug("ignoring %s:%s" % (name, value))
                 except Exception as e:
-                    logerr("parse failed for line '%s': %s" % (line, e))
+                    logging.error("parse failed for line '%s': %s" % (line, e))
             else:
-                log_dbg("skip line '%s'" % line)
+                logging.debug("skip line '%s'" % line)
         while lines:
             lines.pop(0)
         return packet
@@ -595,7 +565,7 @@ class AcuriteTowerPacket(Packet):
             pkt["humidity"] = float(m.group(5))
             pkt = Acurite.insert_ids(pkt, AcuriteTowerPacket.__name__)
         else:
-            loginf("AcuriteTowerPacket: unrecognized data: '%s'" % lines[0])
+            logging.info("AcuriteTowerPacket: unrecognized data: '%s'" % lines[0])
         lines.pop(0)
         return pkt
 
@@ -673,7 +643,9 @@ class Acurite5n1Packet(Packet):
                         pkt["wind_dir"] = float(m.group(3))
                         pkt["rain_total"] = float(m.group(4))
                     else:
-                        loginf("Acurite5n1Packet: no match for type 31: '%s'" % payload)
+                        logging.info(
+                            "Acurite5n1Packet: no match for type 31: '%s'" % payload
+                        )
                 elif msg_type == "38":
                     m = Acurite5n1Packet.MSG38.search(payload)
                     if m:
@@ -683,9 +655,11 @@ class Acurite5n1Packet(Packet):
                         pkt["temperature_F"] = float(m.group(4))
                         pkt["humidity"] = float(m.group(5))
                     else:
-                        loginf("Acurite5n1Packet: no match for type 38: '%s'" % payload)
+                        logging.info(
+                            "Acurite5n1Packet: no match for type 38: '%s'" % payload
+                        )
                 else:
-                    loginf(
+                    logging.info(
                         "Acurite5n1Packet: unknown message type %s"
                         " in line '%s'" % (msg_type, lines[0])
                     )
@@ -694,11 +668,13 @@ class Acurite5n1Packet(Packet):
                 if m:
                     total = float(m.group(1))
                     pkt["rain_since_reset"] = total
-                    loginf("Acurite5n1Packet: rain since reset: %s" % total)
+                    logging.info("Acurite5n1Packet: rain since reset: %s" % total)
                 else:
-                    loginf("Acurite5n1Packet: unknown message format: '%s'" % lines[0])
+                    logging.info(
+                        "Acurite5n1Packet: unknown message format: '%s'" % lines[0]
+                    )
         else:
-            loginf("Acurite5n1Packet: unrecognized data: '%s'" % lines[0])
+            logging.info("Acurite5n1Packet: unrecognized data: '%s'" % lines[0])
         lines.pop(0)
         return Acurite.insert_ids(pkt, Acurite5n1Packet.__name__)
 
@@ -857,7 +833,7 @@ class Acurite986Packet(Packet):
             pkt["temperature"] = float(m.group(3))
             pkt["temperature_F"] = float(m.group(4))
         else:
-            loginf("Acurite986Packet: unrecognized data: '%s'" % lines[0])
+            logging.info("Acurite986Packet: unrecognized data: '%s'" % lines[0])
         lines.pop(0)
         return Acurite.insert_ids(pkt, Acurite986Packet.__name__)
 
@@ -935,7 +911,7 @@ class AcuriteLightningPacket(Packet):
             pkt["strikes_total"] = float(m.group(7))
             pkt["distance"] = float(m.group(8))
         else:
-            loginf("AcuriteLightningPacket: unrecognized data: %s" % lines[0])
+            logging.info("AcuriteLightningPacket: unrecognized data: %s" % lines[0])
         lines.pop(0)
         return Acurite.insert_ids(pkt, AcuriteLightningPacket.__name__)
 
@@ -3179,7 +3155,7 @@ class PacketFactory(object):
             if lines[0].startswith("{"):
                 pkt = PacketFactory.parse_json(lines)
                 if pkt is None:
-                    log_dbg("punt unrecognized line '%s'" % lines[0])
+                    logging.debug("punt unrecognized line '%s'" % lines[0])
                 lines.pop(0)
             else:
                 pkt = PacketFactory.parse_text(lines)
@@ -3194,23 +3170,27 @@ class PacketFactory(object):
                 for parser in PacketFactory.known_packets():
                     if obj["model"].find(parser.IDENTIFIER) >= 0:
                         return parser.parse_json(obj)
-                log_dbg("parse_json: unknown model %s" % obj["model"])
+                logging.debug("parse_json: unknown model %s" % obj["model"])
         except ValueError as e:
-            log_dbg("parse_json failed: %s" % e)
+            logging.debug("parse_json failed: %s" % e)
         return None
 
     @staticmethod
     def parse_text(lines):
         ts, payload = PacketFactory.parse_firstline(lines[0])
         if ts and payload:
-            log_dbg("parse_text: ts=%s payload=%s" % (ts, payload))
+            logging.debug("parse_text: ts=%s payload=%s" % (ts, payload))
             for parser in PacketFactory.known_packets():
                 if payload.find(parser.IDENTIFIER) >= 0:
                     pkt = parser.parse_text(ts, payload, lines)
-                    log_dbg("pkt=%s" % pkt)
+                    logging.debug("pkt=%s" % pkt)
                     return pkt
-            log_dbg("parse_text: unknown format: ts=%s payload=%s" % (ts, payload))
-        log_dbg("parse_text failed: ts=%s payload=%s line=%s" % (ts, payload, lines[0]))
+            logging.debug(
+                "parse_text: unknown format: ts=%s payload=%s" % (ts, payload)
+            )
+        logging.debug(
+            "parse_text failed: ts=%s payload=%s line=%s" % (ts, payload, lines[0])
+        )
         lines.pop(0)
         return None
 
@@ -3226,7 +3206,7 @@ class PacketFactory(object):
                 ts = timegm(utc)
                 payload = m.group(2).strip()
         except Exception as e:
-            logerr("parse timestamp failed for '%s': %s" % (line, e))
+            logging.error("parse timestamp failed for '%s': %s" % (line, e))
         return ts, payload
 
 
@@ -3234,7 +3214,7 @@ class SDRConfigurationEditor(weewx.drivers.AbstractConfEditor):
     @property
     def default_stanza(self):
         return (
-            """
+            r"""
                 [SDR]
                     # This section is for the software-defined radio driver.
                 
@@ -3242,7 +3222,7 @@ class SDRConfigurationEditor(weewx.drivers.AbstractConfEditor):
                     driver = user.sdr
                 
                     # How to invoke the rtl_433 command
-                #    cmd = %s
+                    #    cmd = %s
                 
                     # The sensor map associates observations with database fields.  Each map
                     # element consists of a tuple on the left and a database field name on the
@@ -3256,17 +3236,17 @@ class SDRConfigurationEditor(weewx.drivers.AbstractConfEditor):
                     #
                     # glob-style pattern matching is supported for the sensor_identifier.
                     #
-                # map data from any fine offset sensor cluster to database field names
-                #    [[sensor_map]]
-                #        windGust = wind_gust.*.FOWH1080Packet
-                #        outBatteryStatus = battery.*.FOWH1080Packet
-                #        rain_total = rain_total.*.FOWH1080Packet
-                #        windSpeed = wind_speed.*.FOWH1080Packet
-                #        windDir = wind_dir.*.FOWH1080Packet
-                #        outHumidity = humidity.*.FOWH1080Packet
-                #        outTemp = temperature.*.FOWH1080Packet
-                
-                """
+                    # map data from any fine offset sensor cluster to database field names
+                    #    [[sensor_map]]
+                    #        windGust = wind_gust.*.FOWH1080Packet
+                    #        outBatteryStatus = battery.*.FOWH1080Packet
+                    #        rain_total = rain_total.*.FOWH1080Packet
+                    #        windSpeed = wind_speed.*.FOWH1080Packet
+                    #        windDir = wind_dir.*.FOWH1080Packet
+                    #        outHumidity = humidity.*.FOWH1080Packet
+                    #        outTemp = temperature.*.FOWH1080Packet
+                                
+                    """
             % DEFAULT_CMD
         )
 
@@ -3289,16 +3269,16 @@ class SDRDriver(weewx.drivers.AbstractDevice):
     TIMESTAMP_MATCH_THRESHHOLD = 1
 
     def __init__(self, **stn_dict):
-        loginf("driver version is %s" % DRIVER_VERSION)
+        logging.info("driver version is %s" % DRIVER_VERSION)
         self._model = stn_dict.get("model", "SDR")
-        loginf("model is %s" % self._model)
+        logging.info("model is %s" % self._model)
         self._log_lines = tobool(stn_dict.get("log_lines", False))
         self._log_unknown = tobool(stn_dict.get("log_unknown_sensors", False))
         self._log_unmapped = tobool(stn_dict.get("log_unmapped_sensors", False))
         self._sensor_map = stn_dict.get("sensor_map", {})
-        loginf("sensor map is %s" % self._sensor_map)
+        logging.info("sensor map is %s" % self._sensor_map)
         self._deltas = stn_dict.get("deltas", SDRDriver.DEFAULT_DELTAS)
-        loginf("deltas is %s" % self._deltas)
+        logging.info("deltas is %s" % self._deltas)
         self._ts_delta = stn_dict.get(
             "timestamp_match_threshhold", SDRDriver.TIMESTAMP_MATCH_THRESHHOLD
         )
@@ -3321,28 +3301,28 @@ class SDRDriver(weewx.drivers.AbstractDevice):
         while self._mgr.running():
             for lines in self._mgr.get_stdout():
                 if self._log_lines:
-                    loginf("lines: %s" % lines)
+                    logging.info("lines: %s" % lines)
                 for packet in PacketFactory.create(lines):
                     if packet:
                         pkt = self.map_to_fields(packet, self._sensor_map)
                         if pkt:
                             if not self._packets_match(pkt, self._last_pkt):
-                                log_dbg("packet=%s" % pkt)
+                                logging.debug("packet=%s" % pkt)
                                 self._last_pkt = pkt
                                 self._calculate_deltas(pkt)
                                 yield pkt
                             else:
-                                log_dbg("ignoring duplicate packet %s" % pkt)
+                                logging.debug("ignoring duplicate packet %s" % pkt)
                         elif self._log_unmapped:
-                            loginf("unmapped: %s" % packet)
+                            logging.info("unmapped: %s" % packet)
                     elif self._log_unknown:
-                        loginf("unparsed: %s" % lines)
+                        logging.info("unparsed: %s" % lines)
             # report any errors
             for line in self._mgr.get_stderr():
-                logerr(line)
+                logging.error(line)
         else:
             for line in self._mgr.get_stderr():
-                logerr(line)
+                logging.error(line)
             raise weewx.WeeWxIOError("rtl_433 process is not running")
 
     def _packets_match(self, pkt1, pkt2):
@@ -3378,7 +3358,7 @@ class SDRDriver(weewx.drivers.AbstractDevice):
             if newtotal >= oldtotal:
                 delta = newtotal - oldtotal
             else:
-                loginf(
+                logging.info(
                     "%s decrement ignored:"
                     " new: %s old: %s" % (label, newtotal, oldtotal)
                 )
