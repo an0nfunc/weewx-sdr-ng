@@ -3215,38 +3215,38 @@ class SDRConfigurationEditor(weewx.drivers.AbstractConfEditor):
     def default_stanza(self):
         return (
             r"""
-                [SDR]
-                    # This section is for the software-defined radio driver.
-                
-                    # The driver to use
-                    driver = user.sdr
-                
-                    # How to invoke the rtl_433 command
-                    #    cmd = %s
-                
-                    # The sensor map associates observations with database fields.  Each map
-                    # element consists of a tuple on the left and a database field name on the
-                    # right.  The tuple on the left consists of:
-                    #
-                    #   <observation_name>.<sensor_identifier>.<packet_type>
-                    #
-                    # The sensor_identifier is hardware-specific.  For example, Acurite sensors
-                    # have a 4 character hexadecimal identifier, whereas fine offset sensor
-                    # clusters have a 4 digit identifier.
-                    #
-                    # glob-style pattern matching is supported for the sensor_identifier.
-                    #
-                    # map data from any fine offset sensor cluster to database field names
-                    #    [[sensor_map]]
-                    #        windGust = wind_gust.*.FOWH1080Packet
-                    #        outBatteryStatus = battery.*.FOWH1080Packet
-                    #        rain_total = rain_total.*.FOWH1080Packet
-                    #        windSpeed = wind_speed.*.FOWH1080Packet
-                    #        windDir = wind_dir.*.FOWH1080Packet
-                    #        outHumidity = humidity.*.FOWH1080Packet
-                    #        outTemp = temperature.*.FOWH1080Packet
-                                
-                    """
+                    [SDR]
+                        # This section is for the software-defined radio driver.
+                    
+                        # The driver to use
+                        driver = user.sdr
+                    
+                        # How to invoke the rtl_433 command
+                        #    cmd = %s
+                    
+                        # The sensor map associates observations with database fields.  Each map
+                        # element consists of a tuple on the left and a database field name on the
+                        # right.  The tuple on the left consists of:
+                        #
+                        #   <observation_name>.<sensor_identifier>.<packet_type>
+                        #
+                        # The sensor_identifier is hardware-specific.  For example, Acurite sensors
+                        # have a 4 character hexadecimal identifier, whereas fine offset sensor
+                        # clusters have a 4 digit identifier.
+                        #
+                        # glob-style pattern matching is supported for the sensor_identifier.
+                        #
+                        # map data from any fine offset sensor cluster to database field names
+                        #    [[sensor_map]]
+                        #        windGust = wind_gust.*.FOWH1080Packet
+                        #        outBatteryStatus = battery.*.FOWH1080Packet
+                        #        rain_total = rain_total.*.FOWH1080Packet
+                        #        windSpeed = wind_speed.*.FOWH1080Packet
+                        #        windDir = wind_dir.*.FOWH1080Packet
+                        #        outHumidity = humidity.*.FOWH1080Packet
+                        #        outTemp = temperature.*.FOWH1080Packet
+                                    
+                        """
             % DEFAULT_CMD
         )
 
@@ -3266,7 +3266,7 @@ class SDRDriver(weewx.drivers.AbstractDevice):
     # reject duplicates only if the difference in timestamp is smaller than
     # the sensor sampling period.  there is no way to know this, so we make
     # that number a configurable option.  the default is 1 second.
-    TIMESTAMP_MATCH_THRESHHOLD = 1
+    TIMESTAMP_MATCH_THRESHOLD = 1
 
     def __init__(self, **stn_dict):
         logging.info("driver version is %s" % DRIVER_VERSION)
@@ -3280,7 +3280,7 @@ class SDRDriver(weewx.drivers.AbstractDevice):
         self._deltas = stn_dict.get("deltas", SDRDriver.DEFAULT_DELTAS)
         logging.info("deltas is %s" % self._deltas)
         self._ts_delta = stn_dict.get(
-            "timestamp_match_threshhold", SDRDriver.TIMESTAMP_MATCH_THRESHHOLD
+            "timestamp_match_threshhold", SDRDriver.TIMESTAMP_MATCH_THRESHOLD
         )
         self._counter_values = dict()
         cmd = stn_dict.get("cmd", DEFAULT_CMD)
