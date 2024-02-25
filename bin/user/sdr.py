@@ -115,6 +115,7 @@ DRIVER_VERSION = "0.87"
 DEFAULT_CMD = "rtl_433 -M utc -F json"
 
 log = logging.getLogger(__name__)
+log.setLevel("DEBUG" if weewx.debug else "INFO")
 
 
 def loader(config_dict, _):
@@ -3257,14 +3258,14 @@ class SDRDriver(weewx.drivers.AbstractDevice):
     # these are applied to mapped packets.
     DEFAULT_DELTAS = {"rain": "rain_total", "strikes": "strikes_total"}
 
-    # what is the difference in timestamp values at which we consider two
+    # What is the difference in timestamp values at which we consider two
     # data samples to be different?  some hardware emits duplicate data, and
-    # sometimes the rtl_433/rtl-sdr emits duplicate data.  when all of the
+    # sometimes the rtl_433/rtl-sdr emits duplicate data. When all the
     # data are identical, including timestamp, we can easily reject duplicates.
     # when the data are identical but vary only by timestamp, then we can
     # reject duplicates only if the difference in timestamp is smaller than
-    # the sensor sampling period.  there is no way to know this, so we make
-    # that number a configurable option.  the default is 1 second.
+    # the sensor sampling period. There is no way to know this, so we make
+    # that number a configurable option. The default is 1 second.
     TIMESTAMP_MATCH_THRESHOLD = 1
 
     def __init__(self, **stn_dict):
