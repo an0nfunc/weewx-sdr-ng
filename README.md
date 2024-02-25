@@ -11,15 +11,15 @@ unlicensed spectrum such as 433MHz, 838MHz, and 900MHz frequencies.
 
 ## Hardware
 
-Tested with the Realtek RTL2838UHIDIR.  Should work with any software-defined
-radio that is compatible with the rtl-sdr software.  Uses the modules in
+Tested with the Realtek RTL2838UHIDIR. Should work with any software-defined
+radio that is compatible with the rtl-sdr software. Uses the modules in
 rtl_433 to recognize packets.
 
-Output from many different sensors is supported.  To see the list of supported
+Output from many different sensors is supported. To see the list of supported
 sensors, run the driver directly with the list-supported action.
 
 If a sensor is supported by rtl_433 but not by weewx-sdr, it is a fairly simple
-matter of writing a parser for that sensor within weewx-sdr.  Things are a bit
+matter of writing a parser for that sensor within weewx-sdr. Things are a bit
 more complicated if a sensor is not supported by rtl_433.
 
 
@@ -41,14 +41,15 @@ weectl extension install https://github.com/an0nfunc/weewx-sdr-ng/archive/refs/h
 2. Run the driver directly to identify the packets you want to capture. You need to be in the weewx install dir for this to work.
 
 ```shell
-PYTHONPATH=. python bin/user/sdr.py --cmd="rtl_433 -M utc -F json"
+PYTHONPATH=. python bin/user/sdr.py --cmd="rtl_433 -M time:unix -F json"
 ```
 
 3. modify the `[SDR]` section of weewx.conf using a text editor
    - create a `[[sensor_map]]` for the data you want to capture
    - possibly modify the `cmd` parameter
 
-4. (re)start weewx
+4. set `[Station]` -> `station_type` to `SDR`
+5. (re)start weewx
 
 ## How to run the driver directly
 
@@ -67,7 +68,7 @@ adjust the driver configuration.
 The default configuration uses this command:
 
 ```shell
-rtl_433 -M utc -F json
+rtl_433 -M time:unix -F json
 ```
 
 Specify different options using the cmd parameter. For example:
@@ -75,7 +76,7 @@ Specify different options using the cmd parameter. For example:
 ```
 [SDR]
     driver = user.sdr
-    cmd = rtl_433 -M utc -F json -R 17 -R 44 -R 50
+    cmd = rtl_433 -M time:unix -F json -R 17 -R 44 -R 50
 ```
 
 The rtl_433 executable emits data for many different types of sensors, some of
@@ -165,20 +166,11 @@ First try running the rtl_433 application to be sure that it works properly:
 rtl_433
 ```
 
-Be sure that you are capturing data from the sensors you care about.  To do
-this, you might want to experiment with some of the options to rtl_433.  For
-example, this will eliminate extraneous output (-q), and use UTC for timestamps
-(-M utc):
-
-```shell
-rtl_433 -M utc -F json
-```
-
 If you know exactly which sensors you want to monitor, try the -R option to
 reduce the clutter. For example:
 
 ```shell
-rtl_433 -M utc -F json -R 9 -R 31
+rtl_433 -M time:unix -F json -R 9 -R 31
 ```
 
 Once that is working, run the driver directly to be sure that it is collecting
@@ -202,20 +194,22 @@ For example, with rtl_433 and rtl-sdr installed like this:
 
 one would set the path like this:
 
+```bash
 export PATH=/opt/rtl-433/bin:${PATH}
 export LD_LIBRARY_PATH=/opt/rtl-sdr/lib
+```
 
 Typically, this would be done in the rc script that starts weewx. If rtl_433
 and rtl-sdr are install to /usr/local or /usr, then there should be no need
 to set the PATH or LD_LIBRARY_PATH before invoking weewx.
 
 If you cannot control the environment in which weewx runs, then you can specify
-the LD_LIBRARY_PATH and PATH in the weewx-sdr driver itself.  For example:
+the LD_LIBRARY_PATH and PATH in the weewx-sdr driver itself. For example:
 
 ```
 [SDR]
     driver = user.sdr
-    cmd = rlt_433 -M utc -F json
+    cmd = rlt_433 -M time:unix -F json
     path = /opt/rtl-433/bin
     ld_library_path = /opt/libusb-1.0.20/lib:/opt/rtl-sdr/lib
     [[sensor_map]]
@@ -224,7 +218,7 @@ the LD_LIBRARY_PATH and PATH in the weewx-sdr driver itself.  For example:
 
 ## libusb
 
-I have had problems running rtl-sdr on systems with libusb 1.0.11.  The rtl_433
+I have had problems running rtl-sdr on systems with libusb 1.0.11. The rtl_433
 command craps out with a segmentation fault, and the rtl_test command sometimes
 leaves the dongle in a weird state that can be cleared only by unplugging then
 replugging the dongle.
@@ -234,7 +228,7 @@ Using a more recent version of libusb (e.g., 1.0.20) seems to clear things up.
 ## Detecting new sensors
 
 After you have run for a while, you might want to add new sensors to your
-system.  If you have more than two or three sensors, it can be quite a
+system. If you have more than two or three sensors, it can be quite a
 challenge to pick through all the output when you run the driver directly.
 This shows how to display only sensors that are detected but not yet part of
 your weewx configuration.
@@ -260,18 +254,12 @@ To add support for new sensors, capture the output from rtl_433. To capture
 output, run the driver directly and hide known packets:
 
 ```shell
-PYTHONPATH=/home/weewx python /home/weewx/bin/user/sdr.py --cmd "rtl_433 -M utc -F json" --hide parsed,out,empty
+PYTHONPATH=/home/weewx python /home/weewx/bin/user/sdr.py --cmd "rtl_433 -M time:unix -F json" --hide parsed,out,empty
 ```
 
-This should emit a line for each unparsed type.  For example:
+This should emit a line for each unparsed type. For example:
 
-unparsed: ['{"time" : "2017-01-16 15:44:51", "temperature" : 54.140, "humidity" : 34, "id" : 221, "model" : "LaCrosse TX141TH-Bv2 sensor", "battery" : "OK", "test" : "Yes"}\n']
+> unparsed: ['{"time" : "2017-01-16 15:44:51", "temperature" : 54.140, "humidity" : 34, "id" : 221, "model" : "LaCrosse TX141TH-Bv2 sensor", "battery" : "OK", "test" : "Yes"}']
 
-If there is no json output, remove the '-F json' option to see the (deprecated)
-non-json output:
-
-unparsed: ['2016-11-04 16:12:39 :\tFine Offset Electronics, WH2 Temperature/Humidity sensor\n', '\tID:\t 38\n', '\tTemperature:\t 54.4 C\n', '\tHumidity:\t 55 %\n']
-
-If you are not comfortable writing your own parser, post the output to the
-issues section of the weewx-sdr repository and some helpful person might write
+If you are not comfortable writing your own parser, open a new issue with the output and some helpful person might write
 the parser for you.
