@@ -115,7 +115,7 @@ DRIVER_VERSION = "0.87"
 DEFAULT_CMD = "rtl_433 -M utc -F json"
 
 log = logging.getLogger(__name__)
-log.setLevel("DEBUG" if weewx.debug else "INFO")
+log.setLevel(logging.DEBUG if weewx.debug else logging.INFO)
 
 
 def loader(config_dict, _):
@@ -3415,7 +3415,6 @@ class SDRDriver(weewx.drivers.AbstractDevice):
 
 def main():
     import optparse
-    import syslog
 
     usage = """%prog [--debug] [--help] [--version]
         [--action=(show-packets | show-detected | list-supported)]
@@ -3430,8 +3429,6 @@ Hide:
   This is a comma-separate list of the types of data that should not be
   displayed.  Default is to show everything."""
 
-    syslog.openlog("sdr", syslog.LOG_PID | syslog.LOG_CONS)
-    syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_INFO))
     parser = optparse.OptionParser(usage=usage)
     parser.add_option(
         "--version", dest="version", action="store_true", help="display driver version"
@@ -3470,7 +3467,7 @@ Hide:
         exit(1)
 
     if options.debug:
-        syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_DEBUG))
+        log.setLevel(logging.DEBUG)
 
     sensor_map = dict()
     if options.config:
