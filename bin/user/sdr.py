@@ -364,7 +364,7 @@ class AcuriteAtlasPacket(Packet):
     def parse_json(obj):
         pkt = dict()
         pkt["usUnits"] = weewx.US
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["model"] = obj.get("model")
         pkt["hardware_id"] = "%04x" % obj.get("id", 0)
         pkt["channel"] = obj.get("channel")
@@ -417,7 +417,7 @@ class AcuriteTowerPacketV2(Packet):
     def parse_json(obj):
         pkt = dict()
         pkt["usUnits"] = weewx.US
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["protocol"] = Packet.get_int(obj, "protocol")  # 40
         pkt["model"] = obj.get("model")  # model = Acurite-Tower
         pkt["hardware_id"] = "%04x" % obj.get("id", 0)
@@ -447,7 +447,7 @@ class Acurite3n1PacketV2(Packet):
     def parse_json(obj):
         pkt = dict()
         pkt["usUnits"] = weewx.US
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["model"] = obj.get("model")
         pkt["hardware_id"] = "%04x" % obj.get("id", 0)
         pkt["channel"] = obj.get("channel")
@@ -485,7 +485,7 @@ class Acurite5n1PacketV2(Packet):
     def parse_json(obj):
         pkt = dict()
         pkt["usUnits"] = weewx.US
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["protocol"] = Packet.get_int(obj, "protocol")
         pkt["model"] = obj.get("model")
         pkt["hardware_id"] = "%04x" % obj.get("id", 0)
@@ -569,7 +569,7 @@ class AcuriteTowerPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.US
         pkt["hardware_id"] = "%04x" % obj.get("id", 0)
         pkt["channel"] = obj.get("channel")
@@ -605,7 +605,7 @@ class Acurite5n1Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.US
         pkt["hardware_id"] = "%04x" % obj.get("sensor_id", 0)
         pkt["channel"] = obj.get("channel")
@@ -655,7 +655,7 @@ class Acurite606TXPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.US
         sensor_id = obj.get("id")
         if "temperature_F" in obj:
@@ -680,7 +680,7 @@ class Acurite606TXPacketV2(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.US
         sensor_id = obj.get("id")
         if "temperature_F" in obj:
@@ -704,7 +704,7 @@ class AcuriteRain899Packet(Packet):
     def parse_json(obj):
         pkt = dict()
         pkt["usUnits"] = weewx.US
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["model"] = obj.get("model")
         pkt["hardware_id"] = "%04x" % obj.get("id", 0)
         pkt["channel"] = obj.get("channel")
@@ -733,7 +733,7 @@ class Acurite986Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["hardware_id"] = obj.get("id", 0)
         pkt["channel"] = obj.get("channel")
         pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
@@ -758,7 +758,7 @@ class AcuriteLightningPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.US
         pkt["channel"] = obj.get("channel")
         pkt["hardware_id"] = "%04x" % obj.get("id", 0)
@@ -782,7 +782,7 @@ class Acurite00275MPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["hardware_id"] = "%04x" % obj.get("id", 0)
         pkt["probe"] = obj.get("probe")
@@ -806,7 +806,7 @@ class AcuriteWT450Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["sid"] = Packet.get_int(obj, "id")
         pkt["channel"] = Packet.get_int(obj, "channel")
@@ -828,7 +828,7 @@ class Acurite515Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.US
         station_id = "%04x" % obj.get("id", 0)
         pkt["channel"] = Packet.get_int(obj, "channel")
@@ -848,7 +848,7 @@ class AlectoV1TemperaturePacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         station_id = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -867,7 +867,7 @@ class AlectoV1WindPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC  # FIXME: units have not been verified
         station_id = obj.get("id")
         pkt["wind_speed"] = Packet.get_float(obj, "wind_speed")
@@ -887,7 +887,7 @@ class AlectoV1RainPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC  # FIXME: units have not been verified
         station_id = obj.get("id")
         pkt["rain_total"] = Packet.get_float(obj, "rain_total")
@@ -908,7 +908,7 @@ class AmbientF007THPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.US
         house_code = obj.get("id", 0)
         channel = obj.get("channel")
@@ -933,7 +933,7 @@ class AmbientWH31EPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -962,7 +962,7 @@ class EcoWittWH40Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         pkt["rain_total"] = Packet.get_float(obj, "rain_mm")
@@ -985,7 +985,7 @@ class FOWH1080Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["station_id"] = obj.get("id")
         pkt["msg_type"] = Packet.get_int(obj, "msg_type")
@@ -1028,7 +1028,7 @@ class FOWHx080Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         # older versions of rlt_433 user 'station_id'
         if "station_id" in obj:
@@ -1070,7 +1070,7 @@ class FOWH3080Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["station_id"] = obj.get("uv_sensor_id")
         pkt["msg_type"] = Packet.get_int(obj, "msg_type")
@@ -1098,7 +1098,7 @@ class FOWH24Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1129,7 +1129,7 @@ class FOWH24BPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1161,7 +1161,7 @@ class FOWH25Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1187,7 +1187,7 @@ class FOWH25BPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1210,7 +1210,7 @@ class FOWH2Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1233,7 +1233,7 @@ class FOWH32BPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1256,7 +1256,7 @@ class FOWH5Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1279,7 +1279,7 @@ class FOWH51Packet(Packet):
     def parse_json(obj):
         pkt = dict()
         pkt["usUnits"] = weewx.METRIC
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["station_id"] = obj.get("id")
         pkt["soil_moisture_percent"] = Packet.get_float(obj, "moisture")
         pkt["boost"] = Packet.get_float(obj, "boost")
@@ -1310,7 +1310,7 @@ class FOWH65BPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1344,7 +1344,7 @@ class FOWH65BAltPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1376,7 +1376,7 @@ class FOWH0290Packet(Packet):
     def parse_json(obj):
         pkt = dict()
         pkt["usUnits"] = weewx.METRIC
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["station_id"] = obj.get("id")
         pkt["pm2_5_atm"] = Packet.get_float(obj, "pm2_5_ug_m3")
         pkt["pm10_0_atm"] = Packet.get_float(obj, "pm10_0_ug_m3")
@@ -1399,7 +1399,7 @@ class FOWH31LPacket(Packet):
     def parse_json(obj):
         pkt = dict()
         pkt["usUnits"] = weewx.METRIC
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["station_id"] = obj.get("id")
         pkt["battery"] = 0 if obj.get("battery_ok") == 1 else 1
         pkt["strikes_total"] = obj.get("strike_count")
@@ -1424,7 +1424,7 @@ class AuriolHG02832Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["sid"] = Packet.get_int(obj, "id")
         pkt["channel"] = Packet.get_int(obj, "channel")
@@ -1455,7 +1455,7 @@ class HidekiTS04Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["rolling_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1476,7 +1476,7 @@ class HidekiWindPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["rolling_code"] = obj.get("rc")
         pkt["channel"] = obj.get("channel")
@@ -1527,7 +1527,7 @@ class HidekiRainPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["rolling_code"] = obj.get("rc")
         pkt["channel"] = obj.get("channel")
@@ -1550,7 +1550,7 @@ class HolmanWS5029Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1574,7 +1574,7 @@ class InFactoryTHPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.US
         sensor_id = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_F")
@@ -1595,7 +1595,7 @@ class LaCrosseBreezeProPacket(Packet):
     def parse_json(obj):
         pkt = dict()
         pkt["usUnits"] = weewx.METRIC
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["model"] = obj.get("model")
         pkt["hardware_id"] = "%d" % obj.get("id", 0)
         pkt["sequence_num"] = Packet.get_int(obj, "seq")
@@ -1617,7 +1617,7 @@ class LaCrosseWSPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["ws_id"] = obj.get("ws_id")
         pkt["hw_id"] = obj.get("id")
@@ -1650,7 +1650,7 @@ class LaCrosseTX141Bv3Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         sensor_id = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1667,7 +1667,7 @@ class LaCrosseTX141THBv2Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         sensor_id = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1686,7 +1686,7 @@ class LaCrosseTXPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         sensor_id = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1705,7 +1705,7 @@ class LaCrosseTX18Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         sensor_id = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -1722,7 +1722,7 @@ class LaCrosseLTVR3Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         sensor_id = obj.get("id")
         pkt["rain_total"] = Packet.get_float(obj, "rain_mm")
@@ -1740,7 +1740,7 @@ class RubicsonTempPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         channel = obj.get("channel", 0)
         code = obj.get("id", 0)
@@ -1770,7 +1770,7 @@ class OSPCR800Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.US
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1788,7 +1788,7 @@ class OSBTHR918Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1812,7 +1812,7 @@ class OSBTHR968Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1834,7 +1834,7 @@ class OSTHGR122NPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1852,7 +1852,7 @@ class OSTHGR810Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1870,7 +1870,7 @@ class OSTHR128Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("sid")
         pkt["channel"] = obj.get("channel")
@@ -1887,7 +1887,7 @@ class OSUV800Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1905,7 +1905,7 @@ class OSUVR128Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["uv_index"] = Packet.get_float(obj, "uv")
@@ -1921,7 +1921,7 @@ class OSWGR800Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1940,7 +1940,7 @@ class OSTHN802Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1957,7 +1957,7 @@ class OSBTHGN129Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = obj.get("channel")
@@ -1980,7 +1980,7 @@ class OSTHGR968Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = Packet.get_int(obj, "channel")
@@ -1999,7 +1999,7 @@ class OSRGR968Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["channel"] = Packet.get_int(obj, "channel")
@@ -2018,7 +2018,7 @@ class ProloguePacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         sensor_id = obj.get("rid")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -2038,7 +2038,7 @@ class PrologueTHPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["model"] = obj.get("model")
         sensor_id = obj.get("id")
@@ -2056,7 +2056,7 @@ class NexusTemperaturePacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["house_code"] = obj.get("id")
         pkt["battery"] = 0 if obj.get("battery") == "OK" else 1
@@ -2084,7 +2084,7 @@ class Bresser5in1Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -2142,7 +2142,7 @@ class Bresser6in1Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         if "temperature_C" in obj:
@@ -2189,7 +2189,7 @@ class BresserProRainGaugePacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRICWX
         pkt["station_id"] = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -2214,7 +2214,7 @@ class SpringfieldTMPacket(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         sensor_id = obj.get("sid")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -2234,7 +2234,7 @@ class TFATwinPlus303049Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["rolling_code"] = obj.get("rc")
         pkt["channel"] = obj.get("channel")
@@ -2252,7 +2252,7 @@ class TSFT002Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
         pkt["depth"] = Packet.get_float(obj, "depth_cm")
@@ -2271,7 +2271,7 @@ class WS2032Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         sensor_id = obj.get("id")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
@@ -2293,7 +2293,7 @@ class WT0124Packet(Packet):
     @staticmethod
     def parse_json(obj):
         pkt = dict()
-        pkt["dateTime"] = obj.get("time")
+        pkt["dateTime"] = int(obj.get("time"))
         pkt["usUnits"] = weewx.METRIC
         sensor_id = obj.get("rid")
         pkt["temperature"] = Packet.get_float(obj, "temperature_C")
