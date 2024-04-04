@@ -157,11 +157,15 @@ class AsyncReader(threading.Thread):
     def run(self):
         log.debug("start async reader for %s" % self.name)
         self._running = True
-        for line in iter(self._fd.readline, ""):
-            if line:
-                self._queue.put(line)
-            if not self._running:
-                break
+        try:
+            for line in iter(self._fd.readline, ""):
+                if line:
+                    self._queue.put(line)
+                if not self._running:
+                    break
+        except Exception as err:
+            log.error("rtl_433 exited: " + str(err))
+            return
 
     def stop_running(self):
         self._running = False
