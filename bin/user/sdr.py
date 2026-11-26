@@ -141,7 +141,7 @@ except ImportError:
 
     def logmsg(level, msg):
         syslog.syslog(level, 'sdr: %s: %s' %
-                      (threading.currentThread().getName(), msg))
+                      (threading.current_thread().name, msg))
 
     def logdbg(msg):
         logmsg(syslog.LOG_DEBUG, msg)
@@ -217,11 +217,11 @@ class AsyncReader(threading.Thread):
         self._fd = fd
         self._queue = queue
         self._running = False
-        self.setDaemon(True)
-        self.setName(label)
+        self.daemon = True
+        self.name = label
 
     def run(self):
-        logdbg("start async reader for %s" % self.getName())
+        logdbg("start async reader for %s" % self.name)
         self._running = True
         for line in iter(self._fd.readline, ''):
             if line:
@@ -277,20 +277,20 @@ class ProcManager(object):
         self._process.stdout.close()
         logdbg("close stderr")
         self._process.stderr.close()
-        logdbg('shutdown %s' % self.stdout_reader.getName())
+        logdbg('shutdown %s' % self.stdout_reader.name)
         self.stdout_reader.stop_running()
         self.stdout_reader.join(0.5)
-        logdbg('shutdown %s' % self.stderr_reader.getName())
+        logdbg('shutdown %s' % self.stderr_reader.name)
         self.stderr_reader.stop_running()
         self.stderr_reader.join(0.5)
         if self._process.poll() is None:
             logerr('process did not respond to kill, shutting down anyway')
         self._process = None
         if self.stdout_reader.is_alive():
-            loginf('timed out waiting for %s' % self.stdout_reader.getName())
+            loginf('timed out waiting for %s' % self.stdout_reader.name)
         self.stdout_reader = None
         if self.stderr_reader.is_alive():
-            loginf('timed out waiting for %s' % self.stderr_reader.getName())
+            loginf('timed out waiting for %s' % self.stderr_reader.name)
         self.stderr_reader = None
         loginf('shutdown complete')
 
