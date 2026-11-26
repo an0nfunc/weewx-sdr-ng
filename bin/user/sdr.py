@@ -245,6 +245,9 @@ class ProcManager(object):
         self.stderr_reader = None
 
     def startup(self, cmd, path=None, ld_library_path=None):
+        # configobj splits an unquoted value containing commas into a list
+        if isinstance(cmd, list):
+            cmd = ','.join(cmd)
         self._cmd = cmd
         loginf("startup process '%s'" % self._cmd)
         env = os.environ.copy()
