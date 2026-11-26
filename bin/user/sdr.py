@@ -3857,6 +3857,19 @@ Hide:
 
     if options.debug:
         syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_DEBUG))
+        weewx.debug = 1
+
+    # with new-style weewx logging the syslog mask has no effect.  log to the
+    # console, since /dev/log may not exist (e.g. in a container).  setup()
+    # resets weewx.debug from the dict and needs a ConfigObj, not a plain dict.
+    try:
+        import configobj
+        import weeutil.logger
+        weeutil.logger.setup('sdr', configobj.ConfigObj({
+            'debug': 1 if options.debug else 0,
+            'Logging': {'root': {'handlers': ['console']}}}))
+    except ImportError:
+        pass
 
     sensor_map = dict()
     if options.config:
