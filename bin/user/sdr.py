@@ -223,11 +223,16 @@ class AsyncReader(threading.Thread):
     def run(self):
         logdbg("start async reader for %s" % self.name)
         self._running = True
-        for line in iter(self._fd.readline, ''):
-            if line:
+        try:
+            while self._running:
+                line = self._fd.readline()
+                if not line:
+                    break
                 self._queue.put(line)
-            if not self._running:
-                break
+        except Exception as e:
+            # after stop_running() the pipe may already be closed
+            logfn = logerr if self._running else logdbg
+            logfn("async reader for %s failed: %s" % (self.name, e))
 
     def stop_running(self):
         self._running = False
@@ -272,16 +277,16 @@ class ProcManager(object):
 
     def shutdown(self):
         loginf('shutdown process %s' % self._cmd)
+        self.stdout_reader.stop_running()
+        self.stderr_reader.stop_running()
         self._process.kill()
         logdbg("close stdout")
         self._process.stdout.close()
         logdbg("close stderr")
         self._process.stderr.close()
         logdbg('shutdown %s' % self.stdout_reader.name)
-        self.stdout_reader.stop_running()
         self.stdout_reader.join(0.5)
         logdbg('shutdown %s' % self.stderr_reader.name)
-        self.stderr_reader.stop_running()
         self.stderr_reader.join(0.5)
         if self._process.poll() is None:
             logerr('process did not respond to kill, shutting down anyway')
