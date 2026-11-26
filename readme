@@ -171,6 +171,8 @@ Specify different options using the cmd parameter.  For example:
     driver = user.sdr
     cmd = rtl_433 -M utc -F json -R 17 -R 44 -R 50
 
+Unix timestamps work as well, so -M time:unix can be used instead of -M utc.
+
 
 ===============================================================================
 Configuration - logging

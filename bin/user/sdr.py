@@ -333,11 +333,18 @@ class Packet:
         return None
 
     TS_PATTERN = re.compile('(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)')
+    # rtl_433 -M time:unix, optionally with :usec
+    UNIX_TS_PATTERN = re.compile(r'^\s*(\d+)(\.\d+)?\s*$')
 
     @staticmethod
     def parse_time(line):
         ts = None
         try:
+            if isinstance(line, (int, float)):
+                return int(line)
+            m = Packet.UNIX_TS_PATTERN.match(line)
+            if m:
+                return int(m.group(1))
             m = Packet.TS_PATTERN.search(line)
             if m:
                 utc = time.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
