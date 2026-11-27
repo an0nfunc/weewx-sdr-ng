@@ -239,7 +239,7 @@ class AsyncReader(threading.Thread):
 
 
 class ProcManager(object):
-    TS = re.compile('^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d[\s]+')
+    TS = re.compile(r'^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d[\s]+')
 
     def __init__(self):
         self._cmd = None
@@ -340,7 +340,7 @@ class Packet:
     def parse_json(obj):
         return None
 
-    TS_PATTERN = re.compile('(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)')
+    TS_PATTERN = re.compile(r'(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)')
     # rtl_433 -M time:unix, optionally with :usec
     UNIX_TS_PATTERN = re.compile(r'^\s*(\d+)(\.\d+)?\s*$')
 
@@ -568,10 +568,10 @@ class Acurite5n1Packet(Packet):
 
     IDENTIFIER = "Acurite 5n1 sensor"
     PATTERN = re.compile('0x([0-9a-fA-F]+) Ch ([A-C]), (.*)')
-    RAIN = re.compile('Total rain fall since last reset: ([\d.]+)')
-    MSG = re.compile('Msg (\d+), (.*)')
-    MSG31 = re.compile('Wind ([\d.]+) kmph / ([\d.]+) mph ([\d.]+).*rain gauge ([\d.]+) in')
-    MSG38 = re.compile('Wind ([\d.]+) kmph / ([\d.]+) mph, ([\d.-]+) C ([\d.-]+) F ([\d.]+) % RH')
+    RAIN = re.compile(r'Total rain fall since last reset: ([\d.]+)')
+    MSG = re.compile(r'Msg (\d+), (.*)')
+    MSG31 = re.compile(r'Wind ([\d.]+) kmph / ([\d.]+) mph ([\d.]+).*rain gauge ([\d.]+) in')
+    MSG38 = re.compile(r'Wind ([\d.]+) kmph / ([\d.]+) mph, ([\d.-]+) C ([\d.-]+) F ([\d.]+) % RH')
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -747,7 +747,7 @@ class AcuriteTowerPacket(Packet):
     # : 68
 
     IDENTIFIER = "Acurite tower sensor"
-    PATTERN = re.compile('0x([0-9a-fA-F]+) Ch ([A-C]): ([\d.-]+) C ([\d.-]+) F ([\d]+) % RH')
+    PATTERN = re.compile(r'0x([0-9a-fA-F]+) Ch ([A-C]): ([\d.-]+) C ([\d.-]+) F ([\d]+) % RH')
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -907,7 +907,7 @@ class Acurite986Packet(Packet):
     # IDENTIFIER = "Acurite 986 sensor"
     # IDENTIFIER = "Acurite 986 Sensor"
     IDENTIFIER = "Acurite-986"
-    PATTERN = re.compile('0x([0-9a-fA-F]+) - (1R|2F): ([\d.-]+) C ([\d.-]+) F')
+    PATTERN = re.compile(r'0x([0-9a-fA-F]+) - (1R|2F): ([\d.-]+) C ([\d.-]+) F')
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -959,7 +959,7 @@ class AcuriteLightningPacket(Packet):
 #    IDENTIFIER = "Acurite lightning"
 #    IDENTIFIER = "Acurite Lightning 6045M"
     IDENTIFIER = "Acurite-6045M"
-    PATTERN = re.compile('0x([0-9a-fA-F]+) Ch (.) Msg Type 0x([0-9a-fA-F]+): ([\d.-]+) ([CF]) ([\d.]+) % RH Strikes ([\d]+) Distance ([\d.]+)')
+    PATTERN = re.compile(r'0x([0-9a-fA-F]+) Ch (.) Msg Type 0x([0-9a-fA-F]+): ([\d.-]+) ([CF]) ([\d.]+) % RH Strikes ([\d]+) Distance ([\d.]+)')
 
     @staticmethod
     def parse_json(obj):
@@ -1142,8 +1142,8 @@ class AmbientF007THPacket(Packet):
         'House Code': ['house_code', None, lambda x: int(x)],
         'Channel': ['channel', None, lambda x: int(x)],
         'Temperature': [
-            'temperature', re.compile('([\d.-]+) F'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+            'temperature', re.compile(r'([\d.-]+) F'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -1454,8 +1454,8 @@ class CalibeurRF104Packet(Packet):
     PARSEINFO = {
         'ID': ['id', None, lambda x: int(x)],
         'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+            'temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -1628,9 +1628,9 @@ class FOWH1080Packet(Packet):
 #        'Msg type': ['msg_type', None, None],
         'StationID': ['station_id', None, None],
         'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
+            'temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
         'Humidity': [
-            'humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
+            'humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)],
 #        'Wind string': ['wind_dir_ord', None, None],
         'Wind degrees': ['wind_dir', None, lambda x: int(x)],
         'Wind avg speed': ['wind_speed', None, lambda x: float(x)],
@@ -1792,7 +1792,7 @@ class FOWH2Packet(Packet):
     PARSEINFO = {
         'ID': ['station_id', None, lambda x: int(x)],
         'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)]
+            ['temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)]
         }
 
     @staticmethod
@@ -1824,7 +1824,7 @@ class FOWH5Packet(Packet):
     IDENTIFIER = "Fine Offset WH5 sensor"
     PARSEINFO = {
         'ID': ['station_id', None, lambda x: int(x)],
-        'Temperature': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)]
+        'Temperature': ['temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)]
     }
 
     @staticmethod
@@ -1931,10 +1931,10 @@ class FOWH25Packet(Packet):
     PARSEINFO = {
         'ID': ['station_id', None, lambda x: int(x)],
         'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
+            ['temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)],
         'Pressure':
-            ['pressure', re.compile('([\d.-]+) hPa'), lambda x: float(x)]}
+            ['pressure', re.compile(r'([\d.-]+) hPa'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2306,8 +2306,8 @@ class HidekiTS04Packet(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+            'temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2351,9 +2351,9 @@ class HidekiWindPacket(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Wind Strength': ['wind_speed', re.compile('([\d.]+) km/h'), lambda x: float(x)],
-        'Direction': ['wind_dir', re.compile('([\d.]+) '), lambda x: float(x)]}
+            'temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
+        'Wind Strength': ['wind_speed', re.compile(r'([\d.]+) km/h'), lambda x: float(x)],
+        'Direction': ['wind_dir', re.compile(r'([\d.]+) '), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2422,7 +2422,7 @@ class HidekiRainPacket(Packet):
         'Rolling Code': ['rolling_code', None, lambda x: int(x)],
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Rain': ['rain_total', re.compile('([\d.]+) '), lambda x: float(x)]}
+        'Rain': ['rain_total', re.compile(r'([\d.]+) '), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2546,13 +2546,13 @@ class LaCrosseWSPacket(Packet):
     IDENTIFIER = "LaCrosse WS"
     PARSEINFO = {
         'Wind speed': [
-            'wind_speed', re.compile('([\d.]+) m/s'), lambda x: float(x)],
+            'wind_speed', re.compile(r'([\d.]+) m/s'), lambda x: float(x)],
         'Direction': ['wind_dir', None, lambda x: float(x)],
         'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
+            'temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
         'Humidity': ['humidity', None, lambda x: int(x)],
         'Rainfall': [
-            'rain_total', re.compile('([\d.]+) mm'), lambda x: float(x)]}
+            'rain_total', re.compile(r'([\d.]+) mm'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2701,7 +2701,7 @@ class RubicsonTempPacket(Packet):
         'House Code': ['house_code', None, lambda x: int(x)],
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)]}
+        'Temperature': ['temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2771,9 +2771,9 @@ class OSPCR800Packet(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'Rain Rate':
-            ['rain_rate', re.compile('([\d.]+) in'), lambda x: float(x)],
+            ['rain_rate', re.compile(r'([\d.]+) in'), lambda x: float(x)],
         'Total Rain':
-            ['rain_total', re.compile('([\d.]+) in'), lambda x: float(x)]}
+            ['rain_total', re.compile(r'([\d.]+) in'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2804,9 +2804,9 @@ class OSBTHR918Packet(Packet):
         'House Code': ['house_code', None, lambda x: int(x)],
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
-        'Pressure': ['pressure', re.compile('([\d.]+) mbar'), lambda x: float(x)]}
+        'Temperature': ['temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)],
+        'Pressure': ['pressure', re.compile(r'([\d.]+) mbar'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2852,9 +2852,9 @@ class OSBTHR968Packet(Packet):
         'House Code': ['house_code', None, lambda x: int(x)],
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Temperature': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
-        'Pressure': ['pressure', re.compile('([\d.]+) mbar'), lambda x: float(x)]}
+        'Temperature': ['temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)],
+        'Pressure': ['pressure', re.compile(r'([\d.]+) mbar'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2902,8 +2902,8 @@ class OSTHGR122NPacket(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+            'temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2953,10 +2953,10 @@ class OSTHGR810Packet(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'Celcius': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
+            'temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
         'Fahrenheit': [
-            'temperature_F', re.compile('([\d.-]+) F'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+            'temperature_F', re.compile(r'([\d.-]+) F'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -2994,7 +2994,7 @@ class OSTHR128Packet(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x : float(x)]}
+            ['temperature', re.compile(r'([\d.-]+) C'), lambda x : float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -3030,7 +3030,7 @@ class OSTHR228NPacket(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x : float(x)]}
+            ['temperature', re.compile(r'([\d.-]+) C'), lambda x : float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -3065,7 +3065,7 @@ class OSUV800Packet(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'UV Index':
-            ['uv_index', re.compile('([\d.-]+) C'), lambda x : float(x)]}
+            ['uv_index', re.compile(r'([\d.-]+) C'), lambda x : float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -3100,7 +3100,7 @@ class OSUVR128Packet(Packet):
     IDENTIFIER = "UVR128"
     PARSEINFO = {
         'House Code': ['house_code', None, lambda x: int(x)],
-        'UV Index': ['uv_index', re.compile('([\d.-]+) C'), lambda x: float(x)],
+        'UV Index': ['uv_index', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1]}
 
     @staticmethod
@@ -3140,11 +3140,11 @@ class OSWGR800Packet(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'Gust': [
-            'wind_gust', re.compile('([\d.]+) m'), lambda x: float(x)],
+            'wind_gust', re.compile(r'([\d.]+) m'), lambda x: float(x)],
         'Average': [
-            'wind_speed', re.compile('([\d.]+) m'), lambda x: float(x)],
+            'wind_speed', re.compile(r'([\d.]+) m'), lambda x: float(x)],
         'Direction': [
-            'wind_dir', re.compile('([\d.]+) degrees'), lambda x: float(x)]}
+            'wind_dir', re.compile(r'([\d.]+) degrees'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -3181,7 +3181,7 @@ class OSTHN802Packet(Packet):
         'House Code': ['house_code', None, lambda x: int(x)],
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Celcius': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)]}
+        'Celcius': ['temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -3219,9 +3219,9 @@ class OSBTHGN129Packet(Packet):
         'House Code': ['house_code', None, lambda x: int(x)],
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
-        'Celcius': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)],
-        'Pressure': ['pressure', re.compile('([\d.]+) mPa'), lambda x: float(x)]}
+        'Celcius': ['temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)],
+        'Pressure': ['pressure', re.compile(r'([\d.]+) mPa'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -3345,9 +3345,9 @@ class NexusTemperaturePacket(Packet):
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
                 'Channel': ['channel', None, lambda x: int(x)],
         'Temperature':
-            ['temperature', re.compile('([\d.-]+) C'), lambda x : float(x)],
+            ['temperature', re.compile(r'([\d.-]+) C'), lambda x : float(x)],
         'Humidity':
-            ['humidity', re.compile('([\d.-]+) %'), lambda x : float(x)]}
+            ['humidity', re.compile(r'([\d.-]+) %'), lambda x : float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -3424,8 +3424,8 @@ class TFATwinPlus303049Packet(Packet):
         'Channel': ['channel', None, lambda x: int(x)],
         'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
         'Temperature': [
-            'temperature', re.compile('([\d.-]+) C'), lambda x: float(x)],
-        'Humidity': ['humidity', re.compile('([\d.]+) %'), lambda x: float(x)]}
+            'temperature', re.compile(r'([\d.-]+) C'), lambda x: float(x)],
+        'Humidity': ['humidity', re.compile(r'([\d.]+) %'), lambda x: float(x)]}
 
     @staticmethod
     def parse_text(ts, payload, lines):
@@ -3596,7 +3596,7 @@ class PacketFactory(object):
         lines.pop(0)
         return None
 
-    TS_PATTERN = re.compile('(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)[\s]+:*(.*)')
+    TS_PATTERN = re.compile(r'(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)[\s]+:*(.*)')
 
     @staticmethod
     def parse_firstline(line):
