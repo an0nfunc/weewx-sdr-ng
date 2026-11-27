@@ -302,6 +302,22 @@ class ProcManager(object):
     def running(self):
         return self._process.poll() is None
 
+    def stopped_reader(self):
+        # a reader that died leaves its pipe undrained, so rtl_433 blocks
+        for reader in (self.stdout_reader, self.stderr_reader):
+            if not reader.is_alive():
+                return reader.name
+        return None
+
+    def wait_for_exit(self):
+        # a reader at eof usually means rtl_433 is exiting.  let it finish, and
+        # let the stderr reader queue what rtl_433 wrote last.
+        try:
+            self._process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            pass
+        self.stderr_reader.join(0.5)
+
     def get_stderr(self):
         lines = []
         while not self.stderr_queue.empty():
@@ -310,7 +326,8 @@ class ProcManager(object):
 
     def get_stdout(self):
         lines = []
-        while self.running():
+        while ((self.running() and not self.stopped_reader())
+               or not self.stdout_queue.empty()):
             try:
                 # Fetch the output line. For it to be searched, Python 3
                 # requires that it be decoded to unicode. Decoding does no
@@ -3700,7 +3717,7 @@ class SDRDriver(weewx.drivers.AbstractDevice):
         return self._model
 
     def genLoopPackets(self):
-        while self._mgr.running():
+        while True:
             for lines in self._mgr.get_stdout():
                 if self._log_lines:
                     loginf("lines: %s" % lines)
@@ -3724,10 +3741,15 @@ class SDRDriver(weewx.drivers.AbstractDevice):
             # report any errors
             for line in self._mgr.get_stderr():
                 logerr(line)
-        else:
-            for line in self._mgr.get_stderr():
-                logerr(line)
-            raise weewx.WeeWxIOError("rtl_433 process is not running")
+            if not self._mgr.running() or self._mgr.stopped_reader():
+                break
+        self._mgr.wait_for_exit()
+        for line in self._mgr.get_stderr():
+            logerr(line)
+        if self._mgr.running():
+            raise weewx.WeeWxIOError("%s stopped while rtl_433 is running"
+                                     % self._mgr.stopped_reader())
+        raise weewx.WeeWxIOError("rtl_433 process is not running")
 
     def _packets_match(self, pkt1, pkt2):
         # see if two packets match.  this is more than just a direct comparison
