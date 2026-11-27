@@ -288,7 +288,9 @@ class ProcManager(object):
         self.stdout_reader.join(0.5)
         logdbg('shutdown %s' % self.stderr_reader.name)
         self.stderr_reader.join(0.5)
-        if self._process.poll() is None:
+        try:
+            self._process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
             logerr('process did not respond to kill, shutting down anyway')
         self._process = None
         if self.stdout_reader.is_alive():
